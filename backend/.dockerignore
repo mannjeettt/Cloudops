@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.env.production
+logs
+*.log
+coverage
+.nyc_output
+.cache
+dist
+.git
+.gitignore
+README.md
+.DS_Store</content>
+<parameter name="filePath">c:\Users\manje\Desktop\cloudops\backend\.dockerignore

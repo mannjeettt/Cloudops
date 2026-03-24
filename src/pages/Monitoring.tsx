@@ -1,3 +1,4 @@
+import React from 'react';
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { SystemMetricsChart } from "@/components/SystemMetricsChart";
@@ -6,12 +7,39 @@ import { Activity, Cpu, HardDrive, Network } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 const Monitoring = () => {
-  const systemMetrics = [
-    { label: "CPU Usage", value: 68, icon: Cpu, status: "warning" },
-    { label: "Memory", value: 75, icon: HardDrive, status: "warning" },
-    { label: "Disk I/O", value: 42, icon: Activity, status: "success" },
-    { label: "Network", value: 56, icon: Network, status: "success" },
-  ];
+  const [systemMetrics, setSystemMetrics] = React.useState([
+    { label: "CPU Usage", value: 0, icon: Cpu, status: "default" },
+    { label: "Memory", value: 0, icon: HardDrive, status: "default" },
+    { label: "Disk I/O", value: 0, icon: Activity, status: "default" },
+    { label: "Network", value: 0, icon: Network, status: "default" },
+  ]);
+
+  React.useEffect(() => {
+    const loadCurrentMetrics = async () => {
+      try {
+        const resp = await fetch('/api/metrics/current');
+        if (!resp.ok) {
+          throw new Error('Unable to fetch system metrics');
+        }
+        const body = await resp.json();
+
+        if (body.metrics) {
+          setSystemMetrics([
+            { label: "CPU Usage", value: Math.round(body.metrics.cpu), icon: Cpu, status: body.metrics.cpu > 85 ? 'critical' : body.metrics.cpu > 70 ? 'warning' : 'success' },
+            { label: "Memory", value: Math.round(body.metrics.memory.percentage), icon: HardDrive, status: body.metrics.memory.percentage > 85 ? 'critical' : body.metrics.memory.percentage > 70 ? 'warning' : 'success' },
+            { label: "Disk I/O", value: Math.round(body.metrics.disk.percentage ?? 0), icon: Activity, status: body.metrics.disk.percentage > 85 ? 'critical' : body.metrics.disk.percentage > 70 ? 'warning' : 'success' },
+            { label: "Network", value: Math.round((body.metrics.network.rx + body.metrics.network.tx) || 0), icon: Network, status: 'success' },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error loading metrics:', error);
+      }
+    };
+
+    loadCurrentMetrics();
+    const intervalId = window.setInterval(loadCurrentMetrics, 30000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   return (
     <div className="flex h-screen bg-background">
