@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database';
+import { getJwtSecret } from '../config/env';
 
 interface JwtPayload {
   userId: string;
@@ -33,7 +34,7 @@ export const authenticateToken = async (
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret') as JwtPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload;
 
     // Get user from database
     const result = await pool.query(

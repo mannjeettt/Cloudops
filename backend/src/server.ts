@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { connectDB } from './config/database';
+import { validateRequiredEnv } from './config/env';
 import authRouter from './routes/auth';
 import cloudRouter from './routes/cloud';
 import containersRouter from './routes/containers';
@@ -56,6 +57,7 @@ initializeSocket(new SocketIOServer(server, {
 }));
 
 export const startServer = async (): Promise<void> => {
+  validateRequiredEnv();
   await connectDB();
   startCronJobs();
 

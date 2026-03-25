@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
 import { pool } from '../config/database';
+import { getJwtSecret } from '../config/env';
 import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
@@ -54,7 +55,7 @@ router.post('/register', async (req, res) => {
     // Generate JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'default_secret',
+      getJwtSecret(),
       { expiresIn: '24h' }
     );
 
@@ -105,7 +106,7 @@ router.post('/login', async (req, res) => {
     // Generate JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'default_secret',
+      getJwtSecret(),
       { expiresIn: '24h' }
     );
 

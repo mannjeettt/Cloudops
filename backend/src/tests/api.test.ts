@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import { app } from '../server';
 import { pool } from '../config/database';
 
+process.env.JWT_SECRET = 'test-jwt-secret';
+
 jest.mock('../config/database', () => ({
   pool: {
     query: jest.fn()

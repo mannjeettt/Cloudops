@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database';
+import { getJwtSecret } from '../config/env';
 import { logger } from '../utils/logger';
 
 interface AuthenticatedSocket extends Socket {
@@ -18,7 +19,7 @@ export const initializeSocket = (io: Server): void => {
         return next(new Error('Authentication error'));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret') as { userId: string };
+      const decoded = jwt.verify(token, getJwtSecret()) as { userId: string };
       socket.userId = decoded.userId;
       next();
     } catch (error) {
