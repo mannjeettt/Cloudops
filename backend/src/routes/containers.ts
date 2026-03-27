@@ -1,91 +1,63 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { getContainerStats, getContainerLogs, startContainer, stopContainer } from '../services/containerService';
+import { ApiError } from '../utils/apiError';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = express.Router();
 
 // Get all containers
-router.get('/', async (req, res) => {
-  try {
-    const containers = await getContainerStats();
-    res.json({ containers });
-  } catch (error) {
-    console.error('Error fetching containers:', error);
-    res.status(500).json({ message: 'Failed to fetch containers' });
-  }
-});
+router.get('/', asyncHandler(async (_req, res) => {
+  const containers = await getContainerStats();
+  res.json({ containers });
+}));
 
 // Get container by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const containers = await getContainerStats();
-    const container = containers.find(c => c.id === id);
+router.get('/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const containers = await getContainerStats();
+  const container = containers.find((currentContainer) => currentContainer.id === id);
 
-    if (!container) {
-      return res.status(404).json({ message: 'Container not found' });
-    }
-
-    res.json({ container });
-  } catch (error) {
-    console.error('Error fetching container:', error);
-    res.status(500).json({ message: 'Failed to fetch container' });
+  if (!container) {
+    throw new ApiError('Container not found', 404);
   }
-});
+
+  res.json({ container });
+}));
 
 // Get container logs
-router.get('/:id/logs', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { lines = 100 } = req.query;
-    const logs = await getContainerLogs(id, parseInt(lines as string));
-    res.json({ logs });
-  } catch (error) {
-    console.error('Error fetching container logs:', error);
-    res.status(500).json({ message: 'Failed to fetch container logs' });
-  }
-});
+router.get('/:id/logs', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { lines = 100 } = req.query;
+  const logs = await getContainerLogs(id, parseInt(lines as string, 10));
+  res.json({ logs });
+}));
 
 // Start container
-router.post('/:id/start', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await startContainer(id);
-    res.json({ message: 'Container started successfully' });
-  } catch (error) {
-    console.error('Error starting container:', error);
-    res.status(500).json({ message: 'Failed to start container' });
-  }
-});
+router.post('/:id/start', authenticateToken, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await startContainer(id);
+  res.json({ message: 'Container started successfully' });
+}));
 
 // Stop container
-router.post('/:id/stop', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await stopContainer(id);
-    res.json({ message: 'Container stopped successfully' });
-  } catch (error) {
-    console.error('Error stopping container:', error);
-    res.status(500).json({ message: 'Failed to stop container' });
-  }
-});
+router.post('/:id/stop', authenticateToken, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await stopContainer(id);
+  res.json({ message: 'Container stopped successfully' });
+}));
 
 // Get container statistics
-router.get('/:id/stats', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const containers = await getContainerStats();
-    const container = containers.find(c => c.id === id);
+router.get('/:id/stats', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const containers = await getContainerStats();
+  const container = containers.find((currentContainer) => currentContainer.id === id);
 
-    if (!container) {
-      return res.status(404).json({ message: 'Container not found' });
-    }
-
-    res.json({ stats: container });
-  } catch (error) {
-    console.error('Error fetching container stats:', error);
-    res.status(500).json({ message: 'Failed to fetch container stats' });
+  if (!container) {
+    throw new ApiError('Container not found', 404);
   }
-});
+
+  res.json({ stats: container });
+}));
 
 export default router;

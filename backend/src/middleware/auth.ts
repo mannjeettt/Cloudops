@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database';
 import { getJwtSecret } from '../config/env';
+import { ApiError } from '../utils/apiError';
 
 interface JwtPayload {
   userId: string;
@@ -22,7 +23,7 @@ declare global {
 
 export const authenticateToken = async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
@@ -30,8 +31,7 @@ export const authenticateToken = async (
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-      res.status(401).json({ message: 'Access token required' });
-      return;
+      throw new ApiError('Access token required', 401);
     }
 
     const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload;
@@ -43,26 +43,30 @@ export const authenticateToken = async (
     );
 
     if (result.rows.length === 0) {
-      res.status(401).json({ message: 'User not found' });
-      return;
+      throw new ApiError('User not found', 401);
     }
 
     req.user = result.rows[0];
     next();
   } catch (error) {
-    res.status(403).json({ message: 'Invalid token' });
+    if (error instanceof ApiError) {
+      next(error);
+      return;
+    }
+
+    next(new ApiError('Invalid token', 403));
   }
 };
 
 export const authorizeRoles = (...roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({ message: 'Authentication required' });
+      next(new ApiError('Authentication required', 401));
       return;
     }
 
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({ message: 'Insufficient permissions' });
+      next(new ApiError('Insufficient permissions', 403));
       return;
     }
 

@@ -1,88 +1,65 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { getActiveAlerts, createAlert, resolveAlert, getAlertHistory } from '../services/alertService';
+import { ApiError } from '../utils/apiError';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = express.Router();
 
 // Get active alerts
-router.get('/active', async (req, res) => {
-  try {
-    const alerts = await getActiveAlerts();
-    res.json({ alerts });
-  } catch (error) {
-    console.error('Error fetching active alerts:', error);
-    res.status(500).json({ message: 'Failed to fetch active alerts' });
-  }
-});
+router.get('/active', asyncHandler(async (_req, res) => {
+  const alerts = await getActiveAlerts();
+  res.json({ alerts });
+}));
 
 // Get alert history
-router.get('/history', async (req, res) => {
-  try {
-    const { limit = 50, severity } = req.query;
-    const alerts = await getAlertHistory(parseInt(limit as string), severity as string);
-    res.json({ alerts });
-  } catch (error) {
-    console.error('Error fetching alert history:', error);
-    res.status(500).json({ message: 'Failed to fetch alert history' });
-  }
-});
+router.get('/history', asyncHandler(async (req, res) => {
+  const { limit = 50, severity } = req.query;
+  const alerts = await getAlertHistory(parseInt(limit as string, 10), severity as string);
+  res.json({ alerts });
+}));
 
 // Create alert
-router.post('/', authenticateToken, async (req, res) => {
-  try {
-    const { title, message, severity, service, metadata } = req.body;
+router.post('/', authenticateToken, asyncHandler(async (req, res) => {
+  const { title, message, severity, service, metadata } = req.body;
 
-    if (!title || !message || !severity) {
-      return res.status(400).json({ message: 'Title, message, and severity are required' });
-    }
-
-    const alert = await createAlert({
-      title,
-      message,
-      severity,
-      service,
-      metadata,
-      createdBy: req.user!.id
-    });
-
-    res.status(201).json({ alert });
-  } catch (error) {
-    console.error('Error creating alert:', error);
-    res.status(500).json({ message: 'Failed to create alert' });
+  if (!title || !message || !severity) {
+    throw new ApiError('Title, message, and severity are required', 400);
   }
-});
+
+  const alert = await createAlert({
+    title,
+    message,
+    severity,
+    service,
+    metadata,
+    createdBy: req.user!.id
+  });
+
+  res.status(201).json({ alert });
+}));
 
 // Resolve alert
-router.patch('/:id/resolve', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { resolution } = req.body;
+router.patch('/:id/resolve', authenticateToken, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { resolution } = req.body;
 
-    await resolveAlert(id, req.user!.id, resolution);
-    res.json({ message: 'Alert resolved successfully' });
-  } catch (error) {
-    console.error('Error resolving alert:', error);
-    res.status(500).json({ message: 'Failed to resolve alert' });
-  }
-});
+  await resolveAlert(id, req.user!.id, resolution);
+  res.json({ message: 'Alert resolved successfully' });
+}));
 
 // Get alert statistics
-router.get('/stats', async (req, res) => {
-  try {
-    const activeAlerts = await getActiveAlerts();
+router.get('/stats', asyncHandler(async (_req, res) => {
+  const activeAlerts = await getActiveAlerts();
 
-    const stats = {
-      total: activeAlerts.length,
-      critical: activeAlerts.filter(a => a.severity === 'critical').length,
-      warning: activeAlerts.filter(a => a.severity === 'warning').length,
-      info: activeAlerts.filter(a => a.severity === 'info').length
-    };
+  const stats = {
+    total: activeAlerts.length,
+    critical: activeAlerts.filter((alert) => alert.severity === 'critical').length,
+    warning: activeAlerts.filter((alert) => alert.severity === 'warning').length,
+    info: activeAlerts.filter((alert) => alert.severity === 'info').length
+  };
 
-    res.json({ stats });
-  } catch (error) {
-    console.error('Error fetching alert stats:', error);
-    res.status(500).json({ message: 'Failed to fetch alert stats' });
-  }
-});
+  res.json({ stats });
+}));
 
 export default router;

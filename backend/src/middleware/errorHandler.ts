@@ -10,13 +10,19 @@ export const errorHandler = (
   err: CustomError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   let error = { ...err };
   error.message = err.message;
 
   // Log error
-  logger.error(err);
+  logger.error('HTTP request failed', {
+    method: req.method,
+    path: req.originalUrl,
+    statusCode: err.statusCode || 500,
+    message: err.message,
+    stack: err.stack
+  });
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
@@ -49,7 +55,15 @@ export const errorHandler = (
 
   res.status(error.statusCode || 500).json({
     success: false,
+    message: error.message || 'Server Error',
     error: error.message || 'Server Error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
+};
+
+export const notFoundHandler = (req: Request, _res: Response, next: NextFunction): void => {
+  const error: CustomError = new Error(`Route not found: ${req.method} ${req.originalUrl}`);
+  error.statusCode = 404;
+  error.isOperational = true;
+  next(error);
 };

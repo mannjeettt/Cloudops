@@ -16,6 +16,9 @@ import alertsRouter from './routes/alerts';
 import settingsRouter from './routes/settings';
 import { initializeSocket } from './socket/socketManager';
 import { startCronJobs } from './schedulers/cronJobs';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { requestLogger } from './middleware/requestLogger';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -27,6 +30,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(requestLogger);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -46,6 +50,8 @@ app.use('/api/metrics', metricsRouter);
 app.use('/api/pipelines', pipelinesRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/settings', settingsRouter);
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 
@@ -63,7 +69,7 @@ export const startServer = async (): Promise<void> => {
 
   await new Promise<void>((resolve) => {
     server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      logger.info(`Server running on port ${PORT}`);
       resolve();
     });
   });
@@ -71,7 +77,7 @@ export const startServer = async (): Promise<void> => {
 
 if (process.env.NODE_ENV !== 'test') {
   startServer().catch((error) => {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server', error);
     process.exit(1);
   });
 }

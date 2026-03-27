@@ -5,6 +5,8 @@ import Joi from 'joi';
 import { pool } from '../config/database';
 import { getJwtSecret } from '../config/env';
 import { authenticateToken } from '../middleware/auth';
+import { ApiError } from '../utils/apiError';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = express.Router();
 
@@ -21,128 +23,104 @@ const loginSchema = Joi.object({
 });
 
 // Register
-router.post('/register', async (req, res) => {
-  try {
-    const { error } = registerSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ message: error.details[0].message });
-    }
-
-    const { email, password, name } = req.body;
-
-    // Check if user exists
-    const existingUser = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Hash password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Create user
-    const result = await pool.query(
-      'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role',
-      [email, hashedPassword, name, 'user']
-    );
-
-    const user = result.rows[0];
-
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      getJwtSecret(),
-      { expiresIn: '24h' }
-    );
-
-    res.status(201).json({
-      message: 'User created successfully',
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error' });
+router.post('/register', asyncHandler(async (req, res) => {
+  const { error } = registerSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(error.details[0].message, 400);
   }
-});
+
+  const { email, password, name } = req.body;
+
+  const existingUser = await pool.query(
+    'SELECT id FROM users WHERE email = $1',
+    [email]
+  );
+
+  if (existingUser.rows.length > 0) {
+    throw new ApiError('User already exists', 400);
+  }
+
+  const saltRounds = 12;
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+  const result = await pool.query(
+    'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role',
+    [email, hashedPassword, name, 'user']
+  );
+
+  const user = result.rows[0];
+  const token = jwt.sign(
+    { userId: user.id, email: user.email },
+    getJwtSecret(),
+    { expiresIn: '24h' }
+  );
+
+  res.status(201).json({
+    message: 'User created successfully',
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    }
+  });
+}));
 
 // Login
-router.post('/login', async (req, res) => {
-  try {
-    const { error } = loginSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ message: error.details[0].message });
-    }
-
-    const { email, password } = req.body;
-
-    // Find user
-    const result = await pool.query(
-      'SELECT id, email, password, name, role FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const user = result.rows[0];
-
-    // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      getJwtSecret(),
-      { expiresIn: '24h' }
-    );
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+router.post('/login', asyncHandler(async (req, res) => {
+  const { error } = loginSchema.validate(req.body);
+  if (error) {
+    throw new ApiError(error.details[0].message, 400);
   }
-});
+
+  const { email, password } = req.body;
+
+  const result = await pool.query(
+    'SELECT id, email, password, name, role FROM users WHERE email = $1',
+    [email]
+  );
+
+  if (result.rows.length === 0) {
+    throw new ApiError('Invalid credentials', 401);
+  }
+
+  const user = result.rows[0];
+  const isValidPassword = await bcrypt.compare(password, user.password);
+  if (!isValidPassword) {
+    throw new ApiError('Invalid credentials', 401);
+  }
+
+  const token = jwt.sign(
+    { userId: user.id, email: user.email },
+    getJwtSecret(),
+    { expiresIn: '24h' }
+  );
+
+  res.json({
+    message: 'Login successful',
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    }
+  });
+}));
 
 // Get current user
-router.get('/me', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT id, email, name, role FROM users WHERE id = $1',
-      [req.user!.id]
-    );
+router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
+  const result = await pool.query(
+    'SELECT id, email, name, role FROM users WHERE id = $1',
+    [req.user!.id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ user: result.rows[0] });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ message: 'Server error' });
+  if (result.rows.length === 0) {
+    throw new ApiError('User not found', 404);
   }
-});
+
+  res.json({ user: result.rows[0] });
+}));
 
 export default router;
