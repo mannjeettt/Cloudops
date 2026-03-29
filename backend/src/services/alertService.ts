@@ -1,6 +1,6 @@
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
-import { emitAlertUpdate, broadcastSystemAlert } from '../socket/socketManager';
+import { broadcastSystemAlert } from '../socket/socketManager';
 
 export interface Alert {
   id: string;

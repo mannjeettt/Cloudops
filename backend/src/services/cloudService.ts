@@ -104,15 +104,13 @@ export const getCloudMetrics = async (provider: string, timeframe: string = '1h'
   }
 };
 
-const getAWSMetrics = async (credentials: any, timeframe: string): Promise<any> => {
+const getAWSMetrics = async (credentials: any, _timeframe: string): Promise<any> => {
   // Configure AWS SDK
   AWS.config.update({
     accessKeyId: credentials.apiKey,
     secretAccessKey: credentials.secretKey,
     region: credentials.region || 'us-east-1'
   });
-
-  const cloudwatch = new AWS.CloudWatch();
 
   // Get EC2 instances
   const ec2 = new AWS.EC2();
@@ -129,10 +127,10 @@ const getAWSMetrics = async (credentials: any, timeframe: string): Promise<any> 
   return metrics;
 };
 
-const getAzureMetrics = async (credentials: any, timeframe: string): Promise<any> => {
+const getAzureMetrics = async (_credentials: any, _timeframe: string): Promise<any> => {
   // Azure monitoring
   const credential = new DefaultAzureCredential();
-  const client = new MetricsQueryClient(credential);
+  new MetricsQueryClient(credential);
 
   const metrics = {
     provider: 'Azure',
@@ -143,7 +141,7 @@ const getAzureMetrics = async (credentials: any, timeframe: string): Promise<any
   return metrics;
 };
 
-const getGCPMetrics = async (credentials: any, timeframe: string): Promise<any> => {
+const getGCPMetrics = async (credentials: any, _timeframe: string): Promise<any> => {
   // GCP monitoring
   const monitoring = new MetricServiceClient();
 

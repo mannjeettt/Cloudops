@@ -1,6 +1,5 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { pool } from '../config/database';
 import { getJwtSecret } from '../config/env';
 import { logger } from '../utils/logger';
 

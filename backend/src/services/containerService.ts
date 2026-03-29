@@ -23,7 +23,7 @@ export const getContainerStats = async (): Promise<ContainerInfo[]> => {
     const containerStats = await Promise.all(
       containers.map(async (container) => {
         try {
-          const containerInfo = await docker.getContainer(container.Id).inspect();
+          await docker.getContainer(container.Id).inspect();
 
           // Get stats (simplified)
           let cpu = 0;
