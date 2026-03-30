@@ -1,4 +1,7 @@
 import * as os from 'os';
+import { execFile } from 'child_process';
+import { promises as fsPromises, statfsSync } from 'fs';
+import { promisify } from 'util';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
 
@@ -22,6 +25,25 @@ export interface SystemMetrics {
   loadAverage: number[];
 }
 
+const execFileAsync = promisify(execFile);
+const BYTES_IN_GB = 1024 * 1024 * 1024;
+const DEFAULT_TIMEFRAME = '1h';
+const TIMEFRAME_TO_INTERVAL: Record<string, string> = {
+  '15m': '15 minutes',
+  '30m': '30 minutes',
+  '1h': '1 hour',
+  '6h': '6 hours',
+  '12h': '12 hours',
+  '24h': '24 hours',
+  '7d': '7 days',
+  '30d': '30 days'
+};
+
+interface NetworkSample {
+  rxBytes: number;
+  txBytes: number;
+}
+
 export const collectSystemMetrics = async (): Promise<SystemMetrics> => {
   try {
     // CPU usage
@@ -38,24 +60,16 @@ export const collectSystemMetrics = async (): Promise<SystemMetrics> => {
     const usedMemory = totalMemory - freeMemory;
     const memoryPercentage = (usedMemory / totalMemory) * 100;
 
-    // Disk usage (simplified - in production, use a library like 'diskusage')
-    const diskUsage = {
-      used: 0,
-      total: 0,
-      percentage: 0
-    };
-
-    // Network (simplified - in production, use system monitoring libraries)
-    const networkStats = {
-      rx: 0,
-      tx: 0
-    };
+    const [diskUsage, networkStats] = await Promise.all([
+      getDiskUsage(),
+      getNetworkStats()
+    ]);
 
     const metrics: SystemMetrics = {
       cpu: Math.round(cpuUsage * 100) / 100,
       memory: {
-        used: Math.round(usedMemory / 1024 / 1024 / 1024 * 100) / 100, // GB
-        total: Math.round(totalMemory / 1024 / 1024 / 1024 * 100) / 100, // GB
+        used: roundToTwo(usedMemory / BYTES_IN_GB),
+        total: roundToTwo(totalMemory / BYTES_IN_GB),
         percentage: Math.round(memoryPercentage * 100) / 100
       },
       disk: diskUsage,
@@ -73,6 +87,94 @@ export const collectSystemMetrics = async (): Promise<SystemMetrics> => {
     throw error;
   }
 };
+
+const getDiskUsage = async (): Promise<SystemMetrics['disk']> => {
+  try {
+    const rootPath = process.platform === 'win32'
+      ? `${process.env.SystemDrive ?? 'C:'}\\`
+      : '/';
+    const stats = statfsSync(rootPath);
+    const totalBytes = Number(stats.blocks) * Number(stats.bsize);
+    const freeBytes = Number(stats.bfree) * Number(stats.bsize);
+    const usedBytes = Math.max(totalBytes - freeBytes, 0);
+    const percentage = totalBytes > 0 ? (usedBytes / totalBytes) * 100 : 0;
+
+    return {
+      used: roundToTwo(usedBytes / BYTES_IN_GB),
+      total: roundToTwo(totalBytes / BYTES_IN_GB),
+      percentage: roundToTwo(percentage)
+    };
+  } catch (error) {
+    logger.warn('Unable to collect disk metrics, defaulting to zero values:', error);
+    return {
+      used: 0,
+      total: 0,
+      percentage: 0
+    };
+  }
+};
+
+const getNetworkStats = async (): Promise<SystemMetrics['network']> => {
+  try {
+    const snapshot = await readNetworkSnapshot();
+
+    return {
+      rx: snapshot.rxBytes,
+      tx: snapshot.txBytes
+    };
+  } catch (error) {
+    logger.warn('Unable to collect network metrics, defaulting to zero values:', error);
+    return {
+      rx: 0,
+      tx: 0
+    };
+  }
+};
+
+const readNetworkSnapshot = async (): Promise<NetworkSample> => {
+  if (process.platform === 'linux') {
+    const interfaceNames = await fsPromises.readdir('/sys/class/net');
+    let rxBytes = 0;
+    let txBytes = 0;
+
+    for (const interfaceName of interfaceNames) {
+      if (interfaceName === 'lo') {
+        continue;
+      }
+
+      const [rx, tx] = await Promise.all([
+        fsPromises.readFile(`/sys/class/net/${interfaceName}/statistics/rx_bytes`, 'utf8'),
+        fsPromises.readFile(`/sys/class/net/${interfaceName}/statistics/tx_bytes`, 'utf8')
+      ]);
+
+      rxBytes += parseInt(rx.trim(), 10) || 0;
+      txBytes += parseInt(tx.trim(), 10) || 0;
+    }
+
+    return { rxBytes, txBytes };
+  }
+
+  if (process.platform === 'win32') {
+    const { stdout } = await execFileAsync('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      "Get-NetAdapterStatistics | Select-Object ReceivedBytes,SentBytes | ConvertTo-Json -Compress"
+    ]);
+    const parsed = JSON.parse(stdout) as { ReceivedBytes?: number; SentBytes?: number } | Array<{ ReceivedBytes?: number; SentBytes?: number }>;
+    const rows = Array.isArray(parsed) ? parsed : [parsed];
+
+    return rows.reduce<NetworkSample>((totals, row) => ({
+      rxBytes: totals.rxBytes + Number(row.ReceivedBytes ?? 0),
+      txBytes: totals.txBytes + Number(row.SentBytes ?? 0)
+    }), { rxBytes: 0, txBytes: 0 });
+  }
+
+  throw new Error(`Unsupported platform for network metrics: ${process.platform}`);
+};
+
+const roundToTwo = (value: number): number => Math.round(value * 100) / 100;
+
+const resolveInterval = (timeframe: string): string => TIMEFRAME_TO_INTERVAL[timeframe] ?? TIMEFRAME_TO_INTERVAL[DEFAULT_TIMEFRAME];
 
 const storeMetrics = async (metrics: SystemMetrics): Promise<void> => {
   try {
@@ -112,16 +214,17 @@ const storeMetrics = async (metrics: SystemMetrics): Promise<void> => {
 
 export const getMetricsHistory = async (
   metricType: string,
-  timeframe: string = '1h'
+  timeframe: string = DEFAULT_TIMEFRAME
 ): Promise<any[]> => {
   try {
+    const interval = resolveInterval(timeframe);
     const result = await pool.query(`
       SELECT * FROM system_metrics
       WHERE metric_type = $1
-      AND created_at >= NOW() - INTERVAL '${timeframe}'
+      AND created_at >= NOW() - $2::interval
       ORDER BY created_at DESC
       LIMIT 1000
-    `, [metricType]);
+    `, [metricType, interval]);
 
     return result.rows;
   } catch (error) {
