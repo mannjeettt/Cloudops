@@ -1,39 +1,11 @@
-import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Container } from "lucide-react";
 import { Progress } from "./ui/progress";
-
-interface ContainerItem {
-  id: string;
-  name: string;
-  cpu: number;
-  memory: number;
-  status: string;
-}
+import { useContainersQuery } from "@/hooks/use-cloudops-queries";
 
 export const ContainerStats = () => {
-  const [containers, setContainers] = React.useState<ContainerItem[]>([]);
-
-  React.useEffect(() => {
-    const loadContainers = async () => {
-      try {
-        const response = await fetch("/api/containers");
-        if (!response.ok) {
-          throw new Error("Failed to load containers");
-        }
-
-        const body = await response.json();
-        setContainers(Array.isArray(body.containers) ? body.containers.slice(0, 4) : []);
-      } catch (error) {
-        console.error("Error loading containers:", error);
-        setContainers([]);
-      }
-    };
-
-    loadContainers();
-    const intervalId = window.setInterval(loadContainers, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
+  const { data: containers = [], isLoading, isError } = useContainersQuery();
+  const visibleContainers = containers.slice(0, 4);
 
   return (
     <Card className="bg-card border-border">
@@ -45,7 +17,13 @@ export const ContainerStats = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {containers.map((container) => (
+          {isLoading && (
+            <div className="space-y-4">
+              <div className="h-28 rounded-lg border border-border bg-background animate-pulse" />
+              <div className="h-28 rounded-lg border border-border bg-background animate-pulse" />
+            </div>
+          )}
+          {visibleContainers.map((container) => (
             <div key={container.id} className="p-4 rounded-lg bg-background border border-border">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -76,7 +54,10 @@ export const ContainerStats = () => {
               </div>
             </div>
           ))}
-          {containers.length === 0 && (
+          {isError && (
+            <p className="text-sm text-destructive">Unable to load container stats right now.</p>
+          )}
+          {!isLoading && !isError && visibleContainers.length === 0 && (
             <p className="text-sm text-muted-foreground">No containers detected from the current host.</p>
           )}
         </div>

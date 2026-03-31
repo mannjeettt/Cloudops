@@ -1,4 +1,3 @@
-import React from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { MetricCard } from "@/components/MetricCard";
@@ -7,50 +6,25 @@ import { PipelineStatus } from "@/components/PipelineStatus";
 import { ActiveAlerts } from "@/components/ActiveAlerts";
 import { ContainerStats } from "@/components/ContainerStats";
 import { Activity, Server, Zap, Database } from "lucide-react";
+import {
+  useActiveAlertsQuery,
+  useContainersQuery,
+  useCurrentMetricsQuery,
+  useMetricsSummaryQuery,
+} from "@/hooks/use-cloudops-queries";
 
 const Index = () => {
-  const [stats, setStats] = React.useState({
-    activeServices: 0,
-    cpuUsage: 0,
-    activeAlerts: 0,
-    dataPoints: 0,
-  });
+  const { data: containers = [] } = useContainersQuery();
+  const { data: alerts = [] } = useActiveAlertsQuery();
+  const { data: currentMetrics } = useCurrentMetricsQuery();
+  const { data: summary = [] } = useMetricsSummaryQuery();
 
-  React.useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        const [metricsResponse, alertsResponse, containersResponse, summaryResponse] = await Promise.all([
-          fetch("/api/metrics/current"),
-          fetch("/api/alerts/stats"),
-          fetch("/api/containers"),
-          fetch("/api/metrics/summary"),
-        ]);
-
-        const metricsBody = metricsResponse.ok ? await metricsResponse.json() : {};
-        const alertsBody = alertsResponse.ok ? await alertsResponse.json() : {};
-        const containersBody = containersResponse.ok ? await containersResponse.json() : {};
-        const summaryBody = summaryResponse.ok ? await summaryResponse.json() : {};
-
-        const summary = Array.isArray(summaryBody.summary) ? summaryBody.summary : [];
-        const totalDataPoints = summary.reduce((sum: number, row: { count?: string | number }) => {
-          return sum + Number(row.count || 0);
-        }, 0);
-
-        setStats({
-          activeServices: Array.isArray(containersBody.containers) ? containersBody.containers.length : 0,
-          cpuUsage: Math.round(metricsBody.metrics?.cpu || 0),
-          activeAlerts: Number(alertsBody.stats?.total || 0),
-          dataPoints: totalDataPoints,
-        });
-      } catch (error) {
-        console.error("Error loading dashboard:", error);
-      }
-    };
-
-    loadDashboard();
-    const intervalId = window.setInterval(loadDashboard, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
+  const stats = {
+    activeServices: containers.length,
+    cpuUsage: Math.round(currentMetrics?.metrics?.cpu || 0),
+    activeAlerts: alerts.length,
+    dataPoints: summary.reduce((sum, row) => sum + Number(row.count || 0), 0),
+  };
 
   return (
     <div className="flex h-screen bg-background">

@@ -1,15 +1,7 @@
-import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { AlertTriangle, AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface AlertItem {
-  id: string;
-  severity: "critical" | "warning" | "info";
-  message: string;
-  service: string;
-  createdAt?: string;
-}
+import { useActiveAlertsQuery } from "@/hooks/use-cloudops-queries";
 
 function formatRelativeTime(timestamp?: string): string {
   if (!timestamp) {
@@ -28,28 +20,8 @@ function formatRelativeTime(timestamp?: string): string {
 }
 
 export const ActiveAlerts = () => {
-  const [alerts, setAlerts] = React.useState<AlertItem[]>([]);
-
-  React.useEffect(() => {
-    const loadAlerts = async () => {
-      try {
-        const response = await fetch("/api/alerts/active");
-        if (!response.ok) {
-          throw new Error("Failed to load alerts");
-        }
-
-        const body = await response.json();
-        setAlerts(Array.isArray(body.alerts) ? body.alerts.slice(0, 5) : []);
-      } catch (error) {
-        console.error("Error loading alerts:", error);
-        setAlerts([]);
-      }
-    };
-
-    loadAlerts();
-    const intervalId = window.setInterval(loadAlerts, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
+  const { data: alerts = [], isLoading, isError } = useActiveAlertsQuery();
+  const visibleAlerts = alerts.slice(0, 5);
 
   return (
     <Card className="bg-card border-border">
@@ -61,7 +33,13 @@ export const ActiveAlerts = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {alerts.map((alert) => (
+          {isLoading && (
+            <div className="space-y-3">
+              <div className="h-20 rounded-lg border border-border bg-background animate-pulse" />
+              <div className="h-20 rounded-lg border border-border bg-background animate-pulse" />
+            </div>
+          )}
+          {visibleAlerts.map((alert) => (
             <div
               key={alert.id}
               className={cn(
@@ -84,7 +62,10 @@ export const ActiveAlerts = () => {
               </div>
             </div>
           ))}
-          {alerts.length === 0 && (
+          {isError && (
+            <p className="text-sm text-destructive">Unable to load active alerts right now.</p>
+          )}
+          {!isLoading && !isError && visibleAlerts.length === 0 && (
             <p className="text-sm text-muted-foreground">No active alerts right now.</p>
           )}
         </div>

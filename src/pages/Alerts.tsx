@@ -6,36 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, AlertCircle, Bell, Activity, HardDrive, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface AlertStatsResponse {
-  stats?: {
-    total?: number;
-    critical?: number;
-    warning?: number;
-    info?: number;
-  };
-}
-
-interface AlertHistoryItem {
-  id: string;
-  status: "active" | "resolved";
-  severity: "critical" | "warning" | "info";
-  resolvedAt?: string;
-}
-
-interface MetricsResponse {
-  metrics?: {
-    cpu?: number;
-    memory?: {
-      percentage?: number;
-    };
-  };
-}
-
-interface Pipeline {
-  id: string;
-  status: "success" | "failed" | "running" | "pending";
-}
+import {
+  useAlertHistoryQuery,
+  useAlertStatsQuery,
+  useCurrentMetricsQuery,
+  usePipelinesQuery,
+} from "@/hooks/use-cloudops-queries";
 
 interface RuleCard {
   id: string;
@@ -63,94 +39,52 @@ function isToday(timestamp?: string): boolean {
 }
 
 const Alerts = () => {
-  const [summary, setSummary] = React.useState({
-    critical: 0,
-    warnings: 0,
-    resolvedToday: 0,
-  });
-  const [rules, setRules] = React.useState<RuleCard[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [hasLoadedOnce, setHasLoadedOnce] = React.useState(false);
+  const { data: alertStats, isLoading: isStatsLoading } = useAlertStatsQuery();
+  const { data: alertHistory = [], isLoading: isHistoryLoading } = useAlertHistoryQuery(100);
+  const { data: currentMetrics, isLoading: isMetricsLoading } = useCurrentMetricsQuery();
+  const { data: pipelines = [], isLoading: isPipelinesLoading } = usePipelinesQuery();
 
-  React.useEffect(() => {
-    const loadAlertsPage = async () => {
-      if (!hasLoadedOnce) {
-        setIsLoading(true);
-      }
+  const cpuUsage = Math.round(currentMetrics?.metrics?.cpu || 0);
+  const memoryUsage = Math.round(currentMetrics?.metrics?.memory?.percentage || 0);
+  const failedPipelines = pipelines.filter((pipeline) => pipeline.status === "failed").length;
 
-      try {
-        const [statsResponse, historyResponse, metricsResponse, pipelinesResponse] = await Promise.all([
-          fetch("/api/alerts/stats"),
-          fetch("/api/alerts/history?limit=100"),
-          fetch("/api/metrics/current"),
-          fetch("/api/pipelines"),
-        ]);
+  const summary = {
+    critical: Number(alertStats?.stats?.critical || 0),
+    warnings: Number(alertStats?.stats?.warning || 0),
+    resolvedToday: alertHistory.filter((alert) => alert.status === "resolved" && isToday(alert.resolvedAt)).length,
+  };
 
-        const statsBody: AlertStatsResponse = statsResponse.ok ? await statsResponse.json() : {};
-        const historyBody = historyResponse.ok ? await historyResponse.json() : {};
-        const metricsBody: MetricsResponse = metricsResponse.ok ? await metricsResponse.json() : {};
-        const pipelinesBody = pipelinesResponse.ok ? await pipelinesResponse.json() : {};
+  const rules: RuleCard[] = [
+    {
+      id: "cpu-threshold",
+      title: "CPU Threshold",
+      description: "Live signal based on whether CPU usage is approaching or crossing the alert threshold.",
+      statusLabel: cpuUsage > 90 ? "Triggered" : cpuUsage > 80 ? "Warning" : "Monitoring",
+      statusTone: cpuUsage > 90 ? "critical" : cpuUsage > 80 ? "warning" : "success",
+      detail: `Current CPU: ${cpuUsage}%`,
+      icon: Activity,
+    },
+    {
+      id: "memory-alert",
+      title: "Memory Alert",
+      description: "Live signal based on whether memory usage is crossing the critical threshold.",
+      statusLabel: memoryUsage > 90 ? "Triggered" : "Monitoring",
+      statusTone: memoryUsage > 90 ? "critical" : "success",
+      detail: `Current memory: ${memoryUsage}%`,
+      icon: HardDrive,
+    },
+    {
+      id: "pipeline-failures",
+      title: "Pipeline Failures",
+      description: "Live signal based on the latest CI/CD pipeline outcomes.",
+      statusLabel: failedPipelines > 0 ? "Attention" : "Healthy",
+      statusTone: failedPipelines > 0 ? "warning" : "success",
+      detail: failedPipelines > 0 ? `${failedPipelines} failed pipeline${failedPipelines === 1 ? "" : "s"}` : "No failed pipelines",
+      icon: GitBranch,
+    },
+  ];
 
-        const alertHistory: AlertHistoryItem[] = Array.isArray(historyBody.alerts) ? historyBody.alerts : [];
-        const pipelines: Pipeline[] = Array.isArray(pipelinesBody.pipelines) ? pipelinesBody.pipelines : [];
-
-        const cpuUsage = Math.round(metricsBody.metrics?.cpu || 0);
-        const memoryUsage = Math.round(metricsBody.metrics?.memory?.percentage || 0);
-        const failedPipelines = pipelines.filter((pipeline) => pipeline.status === "failed").length;
-
-        setSummary({
-          critical: Number(statsBody.stats?.critical || 0),
-          warnings: Number(statsBody.stats?.warning || 0),
-          resolvedToday: alertHistory.filter((alert) => alert.status === "resolved" && isToday(alert.resolvedAt)).length,
-        });
-
-        setRules([
-          {
-            id: "cpu-threshold",
-            title: "CPU Threshold",
-            description: "Live signal based on whether CPU usage is approaching or crossing the alert threshold.",
-            statusLabel: cpuUsage > 90 ? "Triggered" : cpuUsage > 80 ? "Warning" : "Monitoring",
-            statusTone: cpuUsage > 90 ? "critical" : cpuUsage > 80 ? "warning" : "success",
-            detail: `Current CPU: ${cpuUsage}%`,
-            icon: Activity,
-          },
-          {
-            id: "memory-alert",
-            title: "Memory Alert",
-            description: "Live signal based on whether memory usage is crossing the critical threshold.",
-            statusLabel: memoryUsage > 90 ? "Triggered" : "Monitoring",
-            statusTone: memoryUsage > 90 ? "critical" : "success",
-            detail: `Current memory: ${memoryUsage}%`,
-            icon: HardDrive,
-          },
-          {
-            id: "pipeline-failures",
-            title: "Pipeline Failures",
-            description: "Live signal based on the latest CI/CD pipeline outcomes.",
-            statusLabel: failedPipelines > 0 ? "Attention" : "Healthy",
-            statusTone: failedPipelines > 0 ? "warning" : "success",
-            detail: failedPipelines > 0 ? `${failedPipelines} failed pipeline${failedPipelines === 1 ? "" : "s"}` : "No failed pipelines",
-            icon: GitBranch,
-          },
-        ]);
-      } catch (error) {
-        console.error("Error loading alerts page:", error);
-        setSummary({
-          critical: 0,
-          warnings: 0,
-          resolvedToday: 0,
-        });
-        setRules([]);
-      } finally {
-        setIsLoading(false);
-        setHasLoadedOnce(true);
-      }
-    };
-
-    loadAlertsPage();
-    const intervalId = window.setInterval(loadAlertsPage, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
+  const isLoading = isStatsLoading || isHistoryLoading || isMetricsLoading || isPipelinesLoading;
 
   return (
     <div className="flex h-screen bg-background">

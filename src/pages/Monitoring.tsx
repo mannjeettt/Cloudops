@@ -1,45 +1,21 @@
-import React from 'react';
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { SystemMetricsChart } from "@/components/SystemMetricsChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Cpu, HardDrive, Network } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useCurrentMetricsQuery } from "@/hooks/use-cloudops-queries";
 
 const Monitoring = () => {
-  const [systemMetrics, setSystemMetrics] = React.useState([
-    { label: "CPU Usage", value: 0, icon: Cpu, status: "default" },
-    { label: "Memory", value: 0, icon: HardDrive, status: "default" },
-    { label: "Disk I/O", value: 0, icon: Activity, status: "default" },
-    { label: "Network", value: 0, icon: Network, status: "default" },
-  ]);
+  const { data: metricsResponse } = useCurrentMetricsQuery();
+  const metrics = metricsResponse?.metrics;
 
-  React.useEffect(() => {
-    const loadCurrentMetrics = async () => {
-      try {
-        const resp = await fetch('/api/metrics/current');
-        if (!resp.ok) {
-          throw new Error('Unable to fetch system metrics');
-        }
-        const body = await resp.json();
-
-        if (body.metrics) {
-          setSystemMetrics([
-            { label: "CPU Usage", value: Math.round(body.metrics.cpu), icon: Cpu, status: body.metrics.cpu > 85 ? 'critical' : body.metrics.cpu > 70 ? 'warning' : 'success' },
-            { label: "Memory", value: Math.round(body.metrics.memory.percentage), icon: HardDrive, status: body.metrics.memory.percentage > 85 ? 'critical' : body.metrics.memory.percentage > 70 ? 'warning' : 'success' },
-            { label: "Disk I/O", value: Math.round(body.metrics.disk.percentage ?? 0), icon: Activity, status: body.metrics.disk.percentage > 85 ? 'critical' : body.metrics.disk.percentage > 70 ? 'warning' : 'success' },
-            { label: "Network", value: Math.round((body.metrics.network.rx + body.metrics.network.tx) || 0), icon: Network, status: 'success' },
-          ]);
-        }
-      } catch (error) {
-        console.error('Error loading metrics:', error);
-      }
-    };
-
-    loadCurrentMetrics();
-    const intervalId = window.setInterval(loadCurrentMetrics, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
+  const systemMetrics = [
+    { label: "CPU Usage", value: Math.round(metrics?.cpu || 0), icon: Cpu, status: (metrics?.cpu || 0) > 85 ? "critical" : (metrics?.cpu || 0) > 70 ? "warning" : "success" },
+    { label: "Memory", value: Math.round(metrics?.memory?.percentage || 0), icon: HardDrive, status: (metrics?.memory?.percentage || 0) > 85 ? "critical" : (metrics?.memory?.percentage || 0) > 70 ? "warning" : "success" },
+    { label: "Disk I/O", value: Math.round(metrics?.disk?.percentage || 0), icon: Activity, status: (metrics?.disk?.percentage || 0) > 85 ? "critical" : (metrics?.disk?.percentage || 0) > 70 ? "warning" : "success" },
+    { label: "Network", value: Math.round(((metrics?.network?.rx || 0) + (metrics?.network?.tx || 0)) || 0), icon: Network, status: "success" },
+  ];
 
   return (
     <div className="flex h-screen bg-background">

@@ -1,15 +1,7 @@
-import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { CheckCircle2, XCircle, Clock, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Pipeline {
-  id: string;
-  name: string;
-  status: "success" | "failed" | "running" | "pending";
-  branch: string;
-  startedAt?: string;
-}
+import { usePipelinesQuery } from "@/hooks/use-cloudops-queries";
 
 function formatRelativeTime(timestamp?: string): string {
   if (!timestamp) {
@@ -28,28 +20,8 @@ function formatRelativeTime(timestamp?: string): string {
 }
 
 export const PipelineStatus = () => {
-  const [pipelines, setPipelines] = React.useState<Pipeline[]>([]);
-
-  React.useEffect(() => {
-    const loadPipelines = async () => {
-      try {
-        const response = await fetch("/api/pipelines");
-        if (!response.ok) {
-          throw new Error("Failed to load pipelines");
-        }
-
-        const body = await response.json();
-        setPipelines(Array.isArray(body.pipelines) ? body.pipelines.slice(0, 4) : []);
-      } catch (error) {
-        console.error("Error loading pipelines:", error);
-        setPipelines([]);
-      }
-    };
-
-    loadPipelines();
-    const intervalId = window.setInterval(loadPipelines, 30000);
-    return () => window.clearInterval(intervalId);
-  }, []);
+  const { data: pipelines = [], isLoading, isError } = usePipelinesQuery();
+  const visiblePipelines = pipelines.slice(0, 4);
 
   return (
     <Card className="bg-card border-border">
@@ -61,7 +33,13 @@ export const PipelineStatus = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {pipelines.map((pipeline) => (
+          {isLoading && (
+            <div className="space-y-3">
+              <div className="h-16 rounded-lg border border-border bg-background animate-pulse" />
+              <div className="h-16 rounded-lg border border-border bg-background animate-pulse" />
+            </div>
+          )}
+          {visiblePipelines.map((pipeline) => (
             <div
               key={pipeline.id}
               className="flex items-center justify-between p-3 rounded-lg bg-background border border-border hover:border-primary/30 transition-colors"
@@ -89,7 +67,10 @@ export const PipelineStatus = () => {
               </span>
             </div>
           ))}
-          {pipelines.length === 0 && (
+          {isError && (
+            <p className="text-sm text-destructive">Unable to load pipeline status right now.</p>
+          )}
+          {!isLoading && !isError && visiblePipelines.length === 0 && (
             <p className="text-sm text-muted-foreground">No recent pipelines available yet.</p>
           )}
         </div>

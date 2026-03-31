@@ -10,6 +10,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { useMetricHistoryQueries } from "@/hooks/use-cloudops-queries";
 
 ChartJS.register(
   CategoryScale,
@@ -44,53 +45,18 @@ function formatTimestamp(timestamp: string): string {
 }
 
 export function SystemMetricsChart() {
-  const [labelsState, setLabelsState] = React.useState<string[]>(initialLabels);
-  const [cpuData, setCpuData] = React.useState<number[]>([65, 59, 80, 81, 56, 55]);
-  const [memoryData, setMemoryData] = React.useState<number[]>([28, 48, 40, 19, 86, 27]);
-  const [loading, setLoading] = React.useState<boolean>(false);
-  const [error, setError] = React.useState<string | undefined>(undefined);
-
-  const loadMetricsHistory = React.useCallback(async () => {
-    setLoading(true);
-    setError(undefined);
-
-    try {
-      const [cpuResp, memoryResp] = await Promise.all([
-        fetch('/api/metrics/history?metric=cpu&timeframe=1h'),
-        fetch('/api/metrics/history?metric=memory&timeframe=1h'),
-      ]);
-
-      if (!cpuResp.ok || !memoryResp.ok) {
-        throw new Error('Failed to load metrics history');
-      }
-
-      const cpuBody = await cpuResp.json();
-      const memoryBody = await memoryResp.json();
-      const cpuSeries = Array.isArray(cpuBody.metrics) ? cpuBody.metrics : [];
-      const memorySeries = Array.isArray(memoryBody.metrics) ? memoryBody.metrics : [];
-
-      const cpuSeriesAsc = [...cpuSeries].reverse();
-      const memorySeriesAsc = [...memorySeries].reverse();
-
-      const mergedLabels = cpuSeriesAsc.length > 0
-        ? cpuSeriesAsc.map(point => formatTimestamp(point.created_at))
-        : memorySeriesAsc.map(point => formatTimestamp(point.created_at));
-
-      setLabelsState(mergedLabels.length > 0 ? mergedLabels : initialLabels);
-      setCpuData(cpuSeriesAsc.map(point => Number(point.value)));
-      setMemoryData(memorySeriesAsc.map(point => Number(point.value)));
-    } catch (e) {
-      setError((e as Error).message || 'Unable to load metrics');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    loadMetricsHistory();
-    const intervalId = window.setInterval(loadMetricsHistory, 30000);
-    return () => window.clearInterval(intervalId);
-  }, [loadMetricsHistory]);
+  const [cpuHistoryQuery, memoryHistoryQuery] = useMetricHistoryQueries("1h");
+  const cpuSeriesAsc = [...(cpuHistoryQuery.data || [])].reverse();
+  const memorySeriesAsc = [...(memoryHistoryQuery.data || [])].reverse();
+  const labelsState = cpuSeriesAsc.length > 0
+    ? cpuSeriesAsc.map((point) => formatTimestamp(point.created_at))
+    : memorySeriesAsc.length > 0
+      ? memorySeriesAsc.map((point) => formatTimestamp(point.created_at))
+      : initialLabels;
+  const cpuData = cpuSeriesAsc.length > 0 ? cpuSeriesAsc.map((point) => Number(point.value)) : [65, 59, 80, 81, 56, 55];
+  const memoryData = memorySeriesAsc.length > 0 ? memorySeriesAsc.map((point) => Number(point.value)) : [28, 48, 40, 19, 86, 27];
+  const loading = cpuHistoryQuery.isLoading || memoryHistoryQuery.isLoading;
+  const error = cpuHistoryQuery.error || memoryHistoryQuery.error;
 
   const chartData = {
     labels: labelsState,
@@ -113,7 +79,7 @@ export function SystemMetricsChart() {
   return (
     <div className="w-full h-full p-4">
       {loading && <p className="text-sm text-muted-foreground mb-2">Updating metrics...</p>}
-      {error && <p className="text-sm text-destructive mb-2">{error}</p>}
+      {error && <p className="text-sm text-destructive mb-2">Unable to load metrics history.</p>}
       <Line options={options} data={chartData} />
     </div>
   );
