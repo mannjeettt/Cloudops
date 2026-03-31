@@ -19,6 +19,7 @@ import { startCronJobs } from './schedulers/cronJobs';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { logger } from './utils/logger';
+import { isDemoMode } from './config/demo';
 
 dotenv.config();
 
@@ -64,8 +65,12 @@ initializeSocket(new SocketIOServer(server, {
 
 export const startServer = async (): Promise<void> => {
   validateRequiredEnv();
-  await connectDB();
-  startCronJobs();
+  if (isDemoMode()) {
+    logger.warn('Starting backend in demo mode without database requirements');
+  } else {
+    await connectDB();
+    startCronJobs();
+  }
 
   await new Promise<void>((resolve) => {
     server.listen(PORT, () => {

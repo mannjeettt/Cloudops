@@ -57,5 +57,4 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:</content>
-<parameter name="filePath">c:\Users\manje\Desktop\cloudops\backend\docker-compose.yml
+  redis_data:

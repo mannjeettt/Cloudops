@@ -9,11 +9,17 @@ import {
 } from '../services/cloudService';
 import { ApiError } from '../utils/apiError';
 import { asyncHandler } from '../utils/asyncHandler';
+import { isDemoMode } from '../config/demo';
+import { demoCloudMetrics, demoCloudProviders, demoCloudResources } from '../data/demoData';
 
 const router = express.Router();
 
 // Get connected cloud providers
 router.get('/providers', asyncHandler(async (_req, res) => {
+  if (isDemoMode()) {
+    res.json({ providers: demoCloudProviders });
+    return;
+  }
   const providers = await getCloudProviders();
   res.json({ providers });
 }));
@@ -40,6 +46,14 @@ router.post('/providers/:provider/disconnect', authenticateToken, asyncHandler(a
 
 // Get cloud metrics
 router.get('/metrics', asyncHandler(async (req, res) => {
+  if (isDemoMode()) {
+    const { provider } = req.query;
+    const metrics = provider
+      ? demoCloudMetrics.filter((metric) => metric.provider === provider)
+      : demoCloudMetrics;
+    res.json({ metrics });
+    return;
+  }
   const { provider, timeframe = '1h' } = req.query;
   const metrics = await getCloudMetrics(provider as string, timeframe as string);
   res.json({ metrics });
@@ -47,6 +61,20 @@ router.get('/metrics', asyncHandler(async (req, res) => {
 
 // Get cloud resources
 router.get('/resources', asyncHandler(async (req, res) => {
+  if (isDemoMode()) {
+    const { provider, type } = req.query;
+    const resources = demoCloudResources.filter((resource) => {
+      if (provider && resource.provider !== provider) {
+        return false;
+      }
+      if (type && resource.type !== type) {
+        return false;
+      }
+      return true;
+    });
+    res.json({ resources });
+    return;
+  }
   const { provider, type } = req.query;
   const resources = await getCloudResources(provider as string, type as string);
   res.json({ resources });

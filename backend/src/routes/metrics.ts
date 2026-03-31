@@ -2,6 +2,8 @@ import express from 'express';
 import { pool } from '../config/database';
 import { collectSystemMetrics } from '../services/metricsService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { isDemoMode } from '../config/demo';
+import { demoMetricsHistory, demoMetricsSummary } from '../data/demoData';
 
 const router = express.Router();
 
@@ -14,6 +16,16 @@ router.get('/current', asyncHandler(async (_req, res) => {
 // Get historical metrics
 router.get('/history', asyncHandler(async (req, res) => {
   const { timeframe = '1h', metric = 'all' } = req.query;
+  if (isDemoMode()) {
+    const requestedMetric = typeof metric === 'string' ? metric : 'all';
+    const metrics = requestedMetric === 'memory'
+      ? demoMetricsHistory.memory
+      : requestedMetric === 'cpu'
+        ? demoMetricsHistory.cpu
+        : [...demoMetricsHistory.cpu, ...demoMetricsHistory.memory];
+    res.json({ metrics });
+    return;
+  }
   const allowedTimeframes = new Set(['15m', '30m', '1h', '6h', '12h', '24h', '7d', '30d']);
   const safeTimeframe = typeof timeframe === 'string' && allowedTimeframes.has(timeframe) ? timeframe : '1h';
   const requestedMetric = typeof metric === 'string' ? metric : 'all';
@@ -51,6 +63,10 @@ router.get('/history', asyncHandler(async (req, res) => {
 
 // Get metrics summary
 router.get('/summary', asyncHandler(async (_req, res) => {
+  if (isDemoMode()) {
+    res.json({ summary: demoMetricsSummary });
+    return;
+  }
   const result = await pool.query(`
       SELECT
         metric_type,
