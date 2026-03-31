@@ -1,9 +1,8 @@
-import { Sidebar } from "@/components/Sidebar";
-import { Header } from "@/components/Header";
+import { CheckCircle2, Clock, GitBranch, XCircle } from "lucide-react";
+
 import { PipelineStatus } from "@/components/PipelineStatus";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { GitBranch, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const CICD = () => {
   const deploymentHistory = [
@@ -14,88 +13,80 @@ const CICD = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="mb-6">
-            <h2 className="text-3xl font-bold text-foreground mb-2">CI/CD Pipelines</h2>
-            <p className="text-muted-foreground">Continuous integration and deployment automation</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <Card className="bg-card border-border">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Total Builds</p>
-                    <p className="text-3xl font-bold">1,247</p>
-                  </div>
-                  <GitBranch className="w-10 h-10 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card border-border">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Success Rate</p>
-                    <p className="text-3xl font-bold text-success">94.2%</p>
-                  </div>
-                  <CheckCircle2 className="w-10 h-10 text-success" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card border-border">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Avg Duration</p>
-                    <p className="text-3xl font-bold">3m 21s</p>
-                  </div>
-                  <Clock className="w-10 h-10 text-warning" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PipelineStatus />
-
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle>Deployment History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {deploymentHistory.map((deployment, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-background border border-border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        {deployment.status === "success" ? (
-                          <CheckCircle2 className="w-5 h-5 text-success" />
-                        ) : (
-                          <XCircle className="w-5 h-5 text-destructive" />
-                        )}
-                        <div>
-                          <p className="font-medium">{deployment.version}</p>
-                          <p className="text-xs text-muted-foreground">{deployment.duration} • {deployment.time}</p>
-                        </div>
-                      </div>
-                      <Button variant="outline" size="sm">View Logs</Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+    <>
+      <div className="mb-6">
+        <h2 className="text-3xl font-bold text-foreground mb-2">CI/CD Pipelines</h2>
+        <p className="text-muted-foreground">Continuous integration and deployment automation</p>
       </div>
-    </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total Builds</p>
+                <p className="text-3xl font-bold">1,247</p>
+              </div>
+              <GitBranch className="w-10 h-10 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Success Rate</p>
+                <p className="text-3xl font-bold text-success">94.2%</p>
+              </div>
+              <CheckCircle2 className="w-10 h-10 text-success" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Avg Duration</p>
+                <p className="text-3xl font-bold">3m 21s</p>
+              </div>
+              <Clock className="w-10 h-10 text-warning" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PipelineStatus />
+
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Deployment History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {deploymentHistory.map((deployment) => (
+                <div key={deployment.version} className="flex items-center justify-between p-4 bg-background border border-border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {deployment.status === "success" ? (
+                      <CheckCircle2 className="w-5 h-5 text-success" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-destructive" />
+                    )}
+                    <div>
+                      <p className="font-medium">{deployment.version}</p>
+                      <p className="text-xs text-muted-foreground">{deployment.duration} • {deployment.time}</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm">View Logs</Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 };
 
