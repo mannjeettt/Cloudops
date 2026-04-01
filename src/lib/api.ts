@@ -1,4 +1,4 @@
-export const REFRESH_INTERVAL_MS = 30000;
+export const REFRESH_INTERVAL_MS = 5000;
 
 export async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);

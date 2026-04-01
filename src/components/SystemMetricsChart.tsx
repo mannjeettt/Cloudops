@@ -35,10 +35,6 @@ const options = {
   },
 };
 
-const labels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
-
-const initialLabels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
-
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -52,11 +48,12 @@ export function SystemMetricsChart() {
     ? cpuSeriesAsc.map((point) => formatTimestamp(point.created_at))
     : memorySeriesAsc.length > 0
       ? memorySeriesAsc.map((point) => formatTimestamp(point.created_at))
-      : initialLabels;
-  const cpuData = cpuSeriesAsc.length > 0 ? cpuSeriesAsc.map((point) => Number(point.value)) : [65, 59, 80, 81, 56, 55];
-  const memoryData = memorySeriesAsc.length > 0 ? memorySeriesAsc.map((point) => Number(point.value)) : [28, 48, 40, 19, 86, 27];
+      : [];
+  const cpuData = cpuSeriesAsc.map((point) => Number(point.value));
+  const memoryData = memorySeriesAsc.map((point) => Number(point.value));
   const loading = cpuHistoryQuery.isLoading || memoryHistoryQuery.isLoading;
   const error = cpuHistoryQuery.error || memoryHistoryQuery.error;
+  const hasData = cpuData.length > 0 || memoryData.length > 0;
 
   const chartData = {
     labels: labelsState,
@@ -80,6 +77,9 @@ export function SystemMetricsChart() {
     <div className="w-full h-full p-4">
       {loading && <p className="text-sm text-muted-foreground mb-2">Updating metrics...</p>}
       {error && <p className="text-sm text-destructive mb-2">Unable to load metrics history.</p>}
+      {!loading && !error && !hasData && (
+        <p className="text-sm text-muted-foreground mb-2">Metrics history will appear after a few collection cycles.</p>
+      )}
       <Line options={options} data={chartData} />
     </div>
   );

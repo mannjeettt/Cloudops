@@ -44,33 +44,39 @@ interface NetworkSample {
   txBytes: number;
 }
 
+interface CpuSnapshot {
+  idle: number;
+  total: number;
+}
+
+interface TimedNetworkSample extends NetworkSample {
+  timestamp: number;
+}
+
+const SAMPLE_WINDOW_MS = 1000;
+let previousCpuSnapshot: CpuSnapshot | null = null;
+let previousNetworkSample: TimedNetworkSample | null = null;
+
 export const collectSystemMetrics = async (): Promise<SystemMetrics> => {
   try {
-    // CPU usage
-    const cpus = os.cpus();
-    const cpuUsage = cpus.reduce((acc, cpu) => {
-      const total = Object.values(cpu.times).reduce((a, b) => a + b);
-      const idle = cpu.times.idle;
-      return acc + ((total - idle) / total);
-    }, 0) / cpus.length * 100;
-
     // Memory usage
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
     const memoryPercentage = (usedMemory / totalMemory) * 100;
 
-    const [diskUsage, networkStats] = await Promise.all([
+    const [cpuUsage, diskUsage, networkStats] = await Promise.all([
+      getCpuUsage(),
       getDiskUsage(),
       getNetworkStats()
     ]);
 
     const metrics: SystemMetrics = {
-      cpu: Math.round(cpuUsage * 100) / 100,
+      cpu: roundToTwo(cpuUsage),
       memory: {
         used: roundToTwo(usedMemory / BYTES_IN_GB),
         total: roundToTwo(totalMemory / BYTES_IN_GB),
-        percentage: Math.round(memoryPercentage * 100) / 100
+        percentage: roundToTwo(memoryPercentage)
       },
       disk: diskUsage,
       network: networkStats,
@@ -86,6 +92,49 @@ export const collectSystemMetrics = async (): Promise<SystemMetrics> => {
     logger.error('Error collecting system metrics:', error);
     throw error;
   }
+};
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+const getCpuSnapshot = (): CpuSnapshot => {
+  const cpus = os.cpus();
+
+  return cpus.reduce<CpuSnapshot>((totals, cpu) => {
+    const total = Object.values(cpu.times).reduce((sum, value) => sum + value, 0);
+
+    return {
+      idle: totals.idle + cpu.times.idle,
+      total: totals.total + total
+    };
+  }, { idle: 0, total: 0 });
+};
+
+const calculateCpuUsage = (previous: CpuSnapshot, current: CpuSnapshot): number => {
+  const totalDiff = current.total - previous.total;
+  const idleDiff = current.idle - previous.idle;
+
+  if (totalDiff <= 0) {
+    return 0;
+  }
+
+  return ((totalDiff - idleDiff) / totalDiff) * 100;
+};
+
+const getCpuUsage = async (): Promise<number> => {
+  if (!previousCpuSnapshot) {
+    previousCpuSnapshot = getCpuSnapshot();
+    await sleep(SAMPLE_WINDOW_MS);
+  }
+
+  const currentSnapshot = getCpuSnapshot();
+  const usage = previousCpuSnapshot
+    ? calculateCpuUsage(previousCpuSnapshot, currentSnapshot)
+    : 0;
+
+  previousCpuSnapshot = currentSnapshot;
+  return usage;
 };
 
 const getDiskUsage = async (): Promise<SystemMetrics['disk']> => {
@@ -116,11 +165,38 @@ const getDiskUsage = async (): Promise<SystemMetrics['disk']> => {
 
 const getNetworkStats = async (): Promise<SystemMetrics['network']> => {
   try {
+    if (!previousNetworkSample) {
+      const firstSnapshot = await readNetworkSnapshot();
+      previousNetworkSample = {
+        ...firstSnapshot,
+        timestamp: Date.now()
+      };
+      await sleep(SAMPLE_WINDOW_MS);
+    }
+
     const snapshot = await readNetworkSnapshot();
+    const timestamp = Date.now();
+    const previousSnapshot = previousNetworkSample;
+
+    previousNetworkSample = {
+      ...snapshot,
+      timestamp
+    };
+
+    if (!previousSnapshot) {
+      return {
+        rx: 0,
+        tx: 0
+      };
+    }
+
+    const durationSeconds = Math.max((timestamp - previousSnapshot.timestamp) / 1000, 1);
+    const rxPerSecond = Math.max(snapshot.rxBytes - previousSnapshot.rxBytes, 0) / durationSeconds;
+    const txPerSecond = Math.max(snapshot.txBytes - previousSnapshot.txBytes, 0) / durationSeconds;
 
     return {
-      rx: snapshot.rxBytes,
-      tx: snapshot.txBytes
+      rx: roundToTwo(rxPerSecond / (1024 * 1024)),
+      tx: roundToTwo(txPerSecond / (1024 * 1024))
     };
   } catch (error) {
     logger.warn('Unable to collect network metrics, defaulting to zero values:', error);

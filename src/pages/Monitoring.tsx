@@ -5,6 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useCurrentMetricsQuery } from "@/hooks/use-cloudops-queries";
 
+const formatMetricValue = (label: string, value: number) => {
+  if (label === "Network") {
+    return `${value.toFixed(2)} MB/s`;
+  }
+
+  return `${Math.round(value)}%`;
+};
+
+const getMetricProgressValue = (label: string, value: number) => {
+  if (label === "Network") {
+    return Math.min(Math.round(value * 10), 100);
+  }
+
+  return Math.min(Math.round(value), 100);
+};
+
 const Monitoring = () => {
   const { data: metricsResponse } = useCurrentMetricsQuery();
   const metrics = metricsResponse?.metrics;
@@ -29,10 +45,10 @@ const Monitoring = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <metric.icon className="w-8 h-8 text-primary" />
-                <span className="text-2xl font-bold">{metric.value}%</span>
+                <span className="text-2xl font-bold">{formatMetricValue(metric.label, metric.value)}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-2">{metric.label}</p>
-              <Progress value={metric.value} className="h-2" />
+              <Progress value={getMetricProgressValue(metric.label, metric.value)} className="h-2" />
             </CardContent>
           </Card>
         ))}
