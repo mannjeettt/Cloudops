@@ -8,6 +8,8 @@ import { demoPipelines } from '../data/demoData';
 
 const router = express.Router();
 
+const getFallbackPipelines = <T>(items: T[]): T[] => (items.length > 0 ? items : demoPipelines as T[]);
+
 // Get all pipelines
 router.get('/', asyncHandler(async (_req, res) => {
   if (isDemoMode()) {
@@ -15,7 +17,19 @@ router.get('/', asyncHandler(async (_req, res) => {
     return;
   }
   const pipelines = await getPipelineStatus();
-  res.json({ pipelines });
+  res.json({ pipelines: getFallbackPipelines(pipelines) });
+}));
+
+// Get deployment history
+router.get('/deployments/history', asyncHandler(async (req, res) => {
+  if (isDemoMode()) {
+    res.json({ deployments: demoPipelines });
+    return;
+  }
+
+  const { limit = 20 } = req.query;
+  const history = await getPipelineHistory('all', parseInt(limit as string, 10));
+  res.json({ deployments: getFallbackPipelines(history) });
 }));
 
 // Get pipeline by ID
@@ -30,7 +44,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     return;
   }
   const pipelines = await getPipelineStatus();
-  const pipeline = pipelines.find((currentPipeline) => currentPipeline.id === id);
+  const pipeline = getFallbackPipelines(pipelines).find((currentPipeline) => currentPipeline.id === id);
 
   if (!pipeline) {
     throw new ApiError('Pipeline not found', 404);
@@ -60,18 +74,7 @@ router.get('/:id/history', asyncHandler(async (req, res) => {
   }
   const { limit = 10 } = req.query;
   const history = await getPipelineHistory(id, parseInt(limit as string, 10));
-  res.json({ history });
-}));
-
-// Get deployment history
-router.get('/deployments/history', asyncHandler(async (req, res) => {
-  if (isDemoMode()) {
-    res.json({ deployments: demoPipelines });
-    return;
-  }
-  const { limit = 20 } = req.query;
-  const history = await getPipelineHistory('all', parseInt(limit as string, 10));
-  res.json({ deployments: history });
+  res.json({ history: getFallbackPipelines(history) });
 }));
 
 export default router;

@@ -36,6 +36,17 @@ export interface Pipeline {
   startedAt?: string;
 }
 
+export interface DeploymentHistoryItem {
+  id?: string | number;
+  pipeline_id?: string;
+  name: string;
+  status: "success" | "failed" | "running" | "pending";
+  branch?: string;
+  startedAt?: string;
+  created_at?: string;
+  duration?: number | string | null;
+}
+
 export interface MetricsResponse {
   metrics?: {
     cpu?: number;
@@ -108,6 +119,17 @@ export function usePipelinesQuery() {
     queryFn: async () => {
       const body = await fetchJson<{ pipelines?: Pipeline[] }>("/api/pipelines");
       return Array.isArray(body.pipelines) ? body.pipelines : [];
+    },
+    refetchInterval: REFRESH_INTERVAL_MS,
+  });
+}
+
+export function useDeploymentHistoryQuery(limit: number = 20) {
+  return useQuery({
+    queryKey: ["pipelines", "deployments", limit],
+    queryFn: async () => {
+      const body = await fetchJson<{ deployments?: DeploymentHistoryItem[] }>(`/api/pipelines/deployments/history?limit=${limit}`);
+      return Array.isArray(body.deployments) ? body.deployments : [];
     },
     refetchInterval: REFRESH_INTERVAL_MS,
   });
