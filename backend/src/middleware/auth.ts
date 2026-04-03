@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { pool } from '../config/database';
 import { getJwtSecret } from '../config/env';
 import { ApiError } from '../utils/apiError';
@@ -9,19 +9,41 @@ interface JwtPayload {
   email: string;
 }
 
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
 declare global {
-  interface RequestUser {
-    id: string;
-    email: string;
-    role: string;
+  namespace Express {
+    interface Request {
+      user?: AuthenticatedUser;
+    }
   }
 }
 
-declare module 'express-serve-static-core' {
-  interface Request {
-    user?: RequestUser;
+const extractBearerToken = (authorizationHeader?: string): string => {
+  if (!authorizationHeader) {
+    throw new ApiError('Access token required', 401);
   }
-}
+
+  const [scheme, token] = authorizationHeader.split(' ');
+
+  if (scheme !== 'Bearer' || !token) {
+    throw new ApiError('Bearer token required', 401);
+  }
+
+  return token;
+};
+
+const isJwtPayload = (value: string | jwt.JwtPayload): value is JwtPayload => {
+  if (typeof value === 'string') {
+    return false;
+  }
+
+  return typeof value.userId === 'string' && typeof value.email === 'string';
+};
 
 export const authenticateToken = async (
   req: Request,
@@ -29,16 +51,13 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    const token = extractBearerToken(req.headers.authorization);
+    const decoded = jwt.verify(token, getJwtSecret());
 
-    if (!token) {
-      throw new ApiError('Access token required', 401);
+    if (!isJwtPayload(decoded)) {
+      throw new ApiError('Invalid token payload', 401);
     }
 
-    const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload;
-
-    // Get user from database
     const result = await pool.query(
       'SELECT id, email, role FROM users WHERE id = $1',
       [decoded.userId]
@@ -56,7 +75,17 @@ export const authenticateToken = async (
       return;
     }
 
-    next(new ApiError('Invalid token', 403));
+    if (error instanceof TokenExpiredError) {
+      next(new ApiError('Token expired', 401));
+      return;
+    }
+
+    if (error instanceof JsonWebTokenError) {
+      next(new ApiError('Invalid token', 401));
+      return;
+    }
+
+    next(error);
   }
 };
 

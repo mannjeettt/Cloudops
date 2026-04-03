@@ -116,11 +116,26 @@ export const resolveAlert = async (
   resolution?: string
 ): Promise<void> => {
   try {
-    await pool.query(`
+    const result = await pool.query(`
       UPDATE alerts
       SET status = 'resolved', resolved_at = NOW(), resolved_by = $2, resolution = $3
       WHERE id = $1
+      RETURNING id, title, message, severity, service, status, created_at, resolved_at, metadata
     `, [alertId, resolvedBy, resolution]);
+
+    if (result.rows[0]) {
+      broadcastSystemAlert({
+        id: String(result.rows[0].id),
+        title: result.rows[0].title,
+        message: result.rows[0].message,
+        severity: result.rows[0].severity,
+        service: result.rows[0].service,
+        status: result.rows[0].status,
+        createdAt: result.rows[0].created_at,
+        resolvedAt: result.rows[0].resolved_at,
+        type: 'alert.resolved'
+      });
+    }
 
     logger.info(`Alert ${alertId} resolved by user ${resolvedBy}`);
   } catch (error) {

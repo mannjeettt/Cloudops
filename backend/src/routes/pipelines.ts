@@ -9,15 +9,45 @@ import { demoPipelines } from '../data/demoData';
 const router = express.Router();
 
 const getFallbackPipelines = <T>(items: T[]): T[] => (items.length > 0 ? items : demoPipelines as T[]);
+const normalizeFilter = (value: unknown): string | null => typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : null;
 
 // Get all pipelines
-router.get('/', asyncHandler(async (_req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   if (isDemoMode()) {
-    res.json({ pipelines: demoPipelines });
+    res.json({
+      pipelines: demoPipelines,
+      summary: {
+        total: demoPipelines.length,
+        running: demoPipelines.filter((pipeline) => pipeline.status === 'running').length,
+        success: demoPipelines.filter((pipeline) => pipeline.status === 'success').length,
+        failed: demoPipelines.filter((pipeline) => pipeline.status === 'failed').length
+      }
+    });
     return;
   }
-  const pipelines = await getPipelineStatus();
-  res.json({ pipelines: getFallbackPipelines(pipelines) });
+  const providerFilter = normalizeFilter(req.query.provider);
+  const sourceFilter = normalizeFilter(req.query.source);
+  const pipelines = getFallbackPipelines(await getPipelineStatus()).filter((pipeline) => {
+    if (providerFilter && String(pipeline.provider || '').toLowerCase() !== providerFilter) {
+      return false;
+    }
+
+    if (sourceFilter && String(pipeline.source || '').toLowerCase() !== sourceFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  res.json({
+    pipelines,
+    summary: {
+      total: pipelines.length,
+      running: pipelines.filter((pipeline) => pipeline.status === 'running').length,
+      success: pipelines.filter((pipeline) => pipeline.status === 'success').length,
+      failed: pipelines.filter((pipeline) => pipeline.status === 'failed').length
+    }
+  });
 }));
 
 // Get deployment history
@@ -58,7 +88,7 @@ router.post('/:id/trigger', authenticateToken, asyncHandler(async (req, res) => 
   const { id } = req.params;
   const { branch = 'main' } = req.body;
 
-  await triggerPipeline(id, branch);
+  await triggerPipeline(id, branch, req.user!.id);
   res.json({ message: 'Pipeline triggered successfully' });
 }));
 

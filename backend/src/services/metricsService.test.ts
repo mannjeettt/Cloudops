@@ -94,15 +94,25 @@ describe('metricsService', () => {
     });
 
     mockedFsPromises.readdir.mockResolvedValue(['eth0', 'lo', 'eth1'] as never);
+    let snapshotPhase = 0;
     mockedFsPromises.readFile.mockImplementation(async (path: any) => {
-      const valueMap: Record<string, string> = {
-        '/sys/class/net/eth0/statistics/rx_bytes': '1000',
-        '/sys/class/net/eth0/statistics/tx_bytes': '2000',
-        '/sys/class/net/eth1/statistics/rx_bytes': '3000',
-        '/sys/class/net/eth1/statistics/tx_bytes': '4000'
+      const firstSnapshot: Record<string, string> = {
+        '/sys/class/net/eth0/statistics/rx_bytes': '1048576',
+        '/sys/class/net/eth0/statistics/tx_bytes': '2097152',
+        '/sys/class/net/eth1/statistics/rx_bytes': '3145728',
+        '/sys/class/net/eth1/statistics/tx_bytes': '4194304'
+      };
+      const secondSnapshot: Record<string, string> = {
+        '/sys/class/net/eth0/statistics/rx_bytes': '3145728',
+        '/sys/class/net/eth0/statistics/tx_bytes': '4194304',
+        '/sys/class/net/eth1/statistics/rx_bytes': '7340032',
+        '/sys/class/net/eth1/statistics/tx_bytes': '8388608'
       };
 
-      return valueMap[String(path)] ?? '0';
+      const dataset = snapshotPhase < 4 ? firstSnapshot : secondSnapshot;
+      snapshotPhase += 1;
+
+      return dataset[String(path)] ?? '0';
     });
 
     const metrics = await collectSystemMetrics();
@@ -112,10 +122,10 @@ describe('metricsService', () => {
       total: 100,
       percentage: 75
     });
-    expect(metrics.network).toEqual({
-      rx: 4000,
-      tx: 6000
-    });
+    expect(metrics.network.rx).toBeGreaterThan(5);
+    expect(metrics.network.rx).toBeLessThan(7);
+    expect(metrics.network.tx).toBeGreaterThan(5);
+    expect(metrics.network.tx).toBeLessThan(7);
     expect(query).toHaveBeenCalledTimes(3);
     expect(release).toHaveBeenCalled();
   });

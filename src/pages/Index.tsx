@@ -10,6 +10,7 @@ import {
   useContainersQuery,
   useCurrentMetricsQuery,
   useMetricsSummaryQuery,
+  usePipelinesQuery,
 } from "@/hooks/use-cloudops-queries";
 
 const Index = () => {
@@ -17,12 +18,13 @@ const Index = () => {
   const { data: alerts = [] } = useActiveAlertsQuery();
   const { data: currentMetrics } = useCurrentMetricsQuery();
   const { data: summary = [] } = useMetricsSummaryQuery();
+  const { data: pipelinesData } = usePipelinesQuery();
 
   const stats = {
     activeServices: containers.length,
     cpuUsage: Math.round(currentMetrics?.metrics?.cpu || 0),
     activeAlerts: alerts.length,
-    dataPoints: summary.reduce((sum, row) => sum + Number(row.count || 0), 0),
+    livePipelines: pipelinesData?.summary.running || 0,
   };
 
   return (
@@ -58,9 +60,9 @@ const Index = () => {
           status={stats.activeAlerts > 0 ? "warning" : "success"}
         />
         <MetricCard
-          title="Metric Samples"
-          value={String(stats.dataPoints)}
-          change="Last hour"
+          title="Live Pipelines"
+          value={String(stats.livePipelines)}
+          change="Running now"
           icon={Database}
           trend="up"
           status="success"

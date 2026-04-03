@@ -2,8 +2,11 @@ import { Outlet } from "react-router-dom";
 
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
+import { useRealtimeDashboard } from "@/hooks/use-realtime-dashboard";
 
 const AppLayout = () => {
+  useRealtimeDashboard();
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />

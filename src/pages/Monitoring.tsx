@@ -3,7 +3,7 @@ import { Activity, Cpu, HardDrive, Network } from "lucide-react";
 import { SystemMetricsChart } from "@/components/SystemMetricsChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useCurrentMetricsQuery } from "@/hooks/use-cloudops-queries";
+import { useCurrentMetricsQuery, useMetricsSummaryQuery } from "@/hooks/use-cloudops-queries";
 
 const formatMetricValue = (label: string, value: number) => {
   if (label === "Network") {
@@ -23,7 +23,9 @@ const getMetricProgressValue = (label: string, value: number) => {
 
 const Monitoring = () => {
   const { data: metricsResponse } = useCurrentMetricsQuery();
+  const { data: summary = [] } = useMetricsSummaryQuery();
   const metrics = metricsResponse?.metrics;
+  const summaryMap = Object.fromEntries(summary.map((row) => [row.metric_type, row]));
 
   const systemMetrics = [
     { label: "CPU Usage", value: Math.round(metrics?.cpu || 0), icon: Cpu },
@@ -49,6 +51,11 @@ const Monitoring = () => {
               </div>
               <p className="text-sm text-muted-foreground mb-2">{metric.label}</p>
               <Progress value={getMetricProgressValue(metric.label, metric.value)} className="h-2" />
+              {metric.label !== "Network" ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Avg {Math.round(Number(summaryMap[metric.label.toLowerCase()?.replace(" usage", "").replace(" i/o", "")]?.average || 0))}%
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         ))}

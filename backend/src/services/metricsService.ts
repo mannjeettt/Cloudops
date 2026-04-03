@@ -4,6 +4,7 @@ import { promises as fsPromises, statfsSync } from 'fs';
 import { promisify } from 'util';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
+import { broadcastMetricsSnapshot } from '../socket/socketManager';
 
 export interface SystemMetrics {
   cpu: number;
@@ -86,6 +87,11 @@ export const collectSystemMetrics = async (): Promise<SystemMetrics> => {
 
     // Store metrics in database
     await storeMetrics(metrics);
+    broadcastMetricsSnapshot({
+      type: 'metrics.snapshot',
+      metrics,
+      capturedAt: new Date().toISOString()
+    });
 
     return metrics;
   } catch (error) {

@@ -20,8 +20,8 @@ function formatRelativeTime(timestamp?: string): string {
 }
 
 export const PipelineStatus = () => {
-  const { data: pipelines = [], isLoading, isError } = usePipelinesQuery();
-  const visiblePipelines = pipelines.slice(0, 4);
+  const { data, isLoading, isError } = usePipelinesQuery();
+  const visiblePipelines = (data?.pipelines || []).slice(0, 4);
 
   return (
     <Card className="bg-card border-border">
@@ -51,7 +51,10 @@ export const PipelineStatus = () => {
                 {pipeline.status === "pending" && <Clock className="w-5 h-5 text-muted-foreground" />}
                 <div>
                   <p className="font-medium text-foreground">{pipeline.name}</p>
-                  <p className="text-xs text-muted-foreground">{pipeline.branch}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {pipeline.branch}
+                    {pipeline.source ? ` • ${pipeline.source}` : ""}
+                  </p>
                 </div>
               </div>
               <span

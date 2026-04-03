@@ -1,4 +1,5 @@
-import { CheckCircle2, Clock, GitBranch, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Filter, GitBranch, XCircle } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { PipelineStatus } from "@/components/PipelineStatus";
 import { useDeploymentHistoryQuery, usePipelinesQuery } from "@/hooks/use-cloudops-queries";
@@ -41,8 +42,14 @@ function formatRelativeTime(timestamp?: string) {
 }
 
 const CICD = () => {
-  const { data: pipelines = [] } = usePipelinesQuery();
+  const [selectedProvider, setSelectedProvider] = useState<string>("all");
+  const { data: pipelineResponse } = usePipelinesQuery(selectedProvider === "all" ? undefined : { provider: selectedProvider });
+  const pipelines = pipelineResponse?.pipelines || [];
   const { data: deploymentHistory = [], isLoading: isDeploymentsLoading } = useDeploymentHistoryQuery(8);
+  const availableProviders = useMemo(
+    () => ["all", ...new Set(pipelines.map((pipeline) => pipeline.provider).filter(Boolean) as string[])],
+    [pipelines],
+  );
 
   const totalBuilds = deploymentHistory.length;
   const successfulBuilds = deploymentHistory.filter((deployment) => deployment.status === "success").length;
@@ -67,7 +74,7 @@ const CICD = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Total Builds</p>
-                <p className="text-3xl font-bold">{totalBuilds || pipelines.length}</p>
+                <p className="text-3xl font-bold">{pipelineResponse?.summary.total || totalBuilds || pipelines.length}</p>
               </div>
               <GitBranch className="w-10 h-10 text-primary" />
             </div>
@@ -79,7 +86,11 @@ const CICD = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Success Rate</p>
-                <p className="text-3xl font-bold text-success">{successRate.toFixed(1)}%</p>
+                <p className="text-3xl font-bold text-success">
+                  {pipelineResponse?.summary.total
+                    ? ((pipelineResponse.summary.success / Math.max(pipelineResponse.summary.total, 1)) * 100).toFixed(1)
+                    : successRate.toFixed(1)}%
+                </p>
               </div>
               <CheckCircle2 className="w-10 h-10 text-success" />
             </div>
@@ -98,6 +109,26 @@ const CICD = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-6 border-border bg-card">
+        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Filter className="h-4 w-4" />
+            Pipeline source
+          </div>
+          {availableProviders.map((provider) => (
+            <Button
+              key={provider}
+              type="button"
+              size="sm"
+              variant={selectedProvider === provider ? "default" : "outline"}
+              onClick={() => setSelectedProvider(provider)}
+            >
+              {provider === "all" ? "All sources" : provider}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PipelineStatus />
@@ -130,6 +161,7 @@ const CICD = () => {
                       <p className="font-medium">{deployment.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDuration(deployment.duration)} | {formatRelativeTime(deployment.created_at ?? deployment.startedAt)}
+                        {deployment.provider ? ` | ${deployment.provider}` : ""}
                       </p>
                     </div>
                   </div>

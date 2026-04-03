@@ -17,11 +17,15 @@ export const errorHandler = (
 
   // Log error
   logger.error('HTTP request failed', {
+    requestId: req.requestId,
     method: req.method,
     path: req.originalUrl,
     statusCode: err.statusCode || 500,
     message: err.message,
-    stack: err.stack
+    stack: err.stack,
+    userId: req.user?.id,
+    body: req.body,
+    query: req.query
   });
 
   // Mongoose bad ObjectId
@@ -57,6 +61,7 @@ export const errorHandler = (
     success: false,
     message: error.message || 'Server Error',
     error: error.message || 'Server Error',
+    requestId: req.requestId,
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 };

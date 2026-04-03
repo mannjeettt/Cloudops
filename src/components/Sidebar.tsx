@@ -1,6 +1,7 @@
 import { LayoutDashboard, Activity, GitBranch, Container, AlertTriangle, Settings, Cloud } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -13,6 +14,8 @@ const navItems = [
 ];
 
 export const Sidebar = () => {
+  const { user } = useAuth();
+
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
@@ -46,11 +49,18 @@ export const Sidebar = () => {
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-4 py-3 bg-sidebar-accent rounded-lg">
           <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-primary font-semibold">AD</span>
+            <span className="text-primary font-semibold">
+              {(user?.name || user?.email || "OP")
+                .split(" ")
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()}
+            </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">Admin User</p>
-            <p className="text-xs text-muted-foreground truncate">admin@cloudops.io</p>
+            <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name || "CloudOps User"}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email || "operator@cloudops.io"}</p>
           </div>
         </div>
       </div>
