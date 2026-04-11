@@ -4,6 +4,7 @@ import { Cloud, Lock, Mail } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api";
+import { isAuthRequired } from "@/lib/auth-config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (isAuthenticated) {
+  if (!isAuthRequired || isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 

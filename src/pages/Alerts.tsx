@@ -41,11 +41,11 @@ const Alerts = () => {
   const { data: alertStats, isLoading: isStatsLoading } = useAlertStatsQuery();
   const { data: alertHistory = [], isLoading: isHistoryLoading } = useAlertHistoryQuery(100);
   const { data: currentMetrics, isLoading: isMetricsLoading } = useCurrentMetricsQuery();
-  const { data: pipelines = [], isLoading: isPipelinesLoading } = usePipelinesQuery();
+  const { data: pipelinesData, isLoading: isPipelinesLoading } = usePipelinesQuery();
 
   const cpuUsage = Math.round(currentMetrics?.metrics?.cpu || 0);
   const memoryUsage = Math.round(currentMetrics?.metrics?.memory?.percentage || 0);
-  const failedPipelines = pipelines.filter((pipeline) => pipeline.status === "failed").length;
+  const failedPipelines = (pipelinesData?.pipelines || []).filter((pipeline) => pipeline.status === "failed").length;
 
   const summary = {
     critical: Number(alertStats?.stats?.critical || 0),

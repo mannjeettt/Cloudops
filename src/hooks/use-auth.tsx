@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { fetchJson } from "@/lib/api";
+import { demoAuthToken, demoAuthUser, isAuthRequired } from "@/lib/auth-config";
 import { setAuthToken, getStoredAuthToken } from "@/lib/auth-token";
 import { queryClient } from "@/lib/query-client";
 
@@ -36,11 +37,23 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(() => getStoredAuthToken());
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(isAuthRequired ? null : demoAuthUser);
+  const [token, setToken] = useState<string | null>(() => {
+    if (!isAuthRequired) {
+      return demoAuthToken;
+    }
+
+    return getStoredAuthToken();
+  });
+  const [isBootstrapping, setIsBootstrapping] = useState(isAuthRequired);
 
   const logout = () => {
+    if (!isAuthRequired) {
+      setUser(demoAuthUser);
+      setToken(demoAuthToken);
+      return;
+    }
+
     setAuthToken(null);
     setToken(null);
     setUser(null);
@@ -48,6 +61,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   const refreshSession = async () => {
+    if (!isAuthRequired) {
+      setUser(demoAuthUser);
+      setToken(demoAuthToken);
+      setIsBootstrapping(false);
+      return;
+    }
+
     const activeToken = getStoredAuthToken();
     if (!activeToken) {
       setIsBootstrapping(false);
@@ -72,6 +92,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (!isAuthRequired) {
+      setUser({
+        ...demoAuthUser,
+        email: email || demoAuthUser.email,
+      });
+      setToken(demoAuthToken);
+      return;
+    }
+
     const response = await fetchJson<AuthResponse>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),

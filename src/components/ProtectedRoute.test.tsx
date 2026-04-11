@@ -8,6 +8,10 @@ vi.mock("@/hooks/use-auth", () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock("@/lib/auth-config", () => ({
+  isAuthRequired: true,
+}));
+
 const { useAuth } = await import("@/hooks/use-auth");
 
 describe("ProtectedRoute", () => {
