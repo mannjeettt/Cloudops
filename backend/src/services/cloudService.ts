@@ -12,6 +12,38 @@ export interface CloudProvider {
   region?: string;
 }
 
+interface CloudProviderCredentials {
+  apiKey?: string;
+  secretKey?: string;
+  region?: string;
+  projectId?: string;
+}
+
+type CloudMetrics = {
+  provider: 'AWS' | 'Azure' | 'GCP';
+  services: string[];
+  instances?: number;
+  subscriptions?: number;
+  projects?: number;
+  region?: string;
+  status?: 'connected';
+};
+
+interface CloudResource {
+  id: string;
+  type: string;
+  name: string;
+  status: string;
+}
+
+const toCloudProviderCredentials = (value: unknown): CloudProviderCredentials => {
+  if (typeof value === 'string') {
+    return JSON.parse(value) as CloudProviderCredentials;
+  }
+
+  return (value ?? {}) as CloudProviderCredentials;
+};
+
 export const getCloudProviders = async (): Promise<CloudProvider[]> => {
   try {
     const result = await pool.query('SELECT * FROM cloud_providers');
@@ -75,7 +107,7 @@ export const disconnectCloudProvider = async (provider: string): Promise<void> =
   }
 };
 
-export const getCloudMetrics = async (provider: string, timeframe: string = '1h'): Promise<any> => {
+export const getCloudMetrics = async (provider: string, timeframe: string = '1h'): Promise<CloudMetrics> => {
   try {
     const providerData = await pool.query(
       'SELECT * FROM cloud_providers WHERE name = $1 AND status = $2',
@@ -86,7 +118,7 @@ export const getCloudMetrics = async (provider: string, timeframe: string = '1h'
       throw new Error(`${provider} is not connected`);
     }
 
-    const credentials = providerData.rows[0].credentials;
+    const credentials = toCloudProviderCredentials(providerData.rows[0].credentials);
 
     switch (provider.toLowerCase()) {
       case 'aws':
@@ -104,7 +136,7 @@ export const getCloudMetrics = async (provider: string, timeframe: string = '1h'
   }
 };
 
-const getAWSMetrics = async (credentials: any, _timeframe: string): Promise<any> => {
+const getAWSMetrics = async (credentials: CloudProviderCredentials, _timeframe: string): Promise<CloudMetrics> => {
   // Configure AWS SDK
   AWS.config.update({
     accessKeyId: credentials.apiKey,
@@ -117,7 +149,7 @@ const getAWSMetrics = async (credentials: any, _timeframe: string): Promise<any>
   const instances = await ec2.describeInstances().promise();
 
   // Get basic metrics
-  const metrics = {
+  const metrics: CloudMetrics = {
     provider: 'AWS',
     instances: instances.Reservations?.length || 0,
     region: credentials.region,
@@ -127,12 +159,12 @@ const getAWSMetrics = async (credentials: any, _timeframe: string): Promise<any>
   return metrics;
 };
 
-const getAzureMetrics = async (_credentials: any, _timeframe: string): Promise<any> => {
+const getAzureMetrics = async (_credentials: CloudProviderCredentials, _timeframe: string): Promise<CloudMetrics> => {
   // Azure monitoring
   const credential = new DefaultAzureCredential();
   new MetricsQueryClient(credential);
 
-  const metrics = {
+  const metrics: CloudMetrics = {
     provider: 'Azure',
     subscriptions: 1, // Simplified
     services: ['VM', 'Storage', 'SQL Database']
@@ -141,11 +173,11 @@ const getAzureMetrics = async (_credentials: any, _timeframe: string): Promise<a
   return metrics;
 };
 
-const getGCPMetrics = async (credentials: any, _timeframe: string): Promise<any> => {
+const getGCPMetrics = async (credentials: CloudProviderCredentials, _timeframe: string): Promise<CloudMetrics> => {
   // GCP monitoring
   const monitoring = new MetricServiceClient();
 
-  const metrics = {
+  const metrics: CloudMetrics = {
     provider: 'GCP',
     projects: 1, // Simplified
     services: ['Compute Engine', 'Cloud Storage', 'Cloud SQL'],
@@ -160,7 +192,7 @@ const getGCPMetrics = async (credentials: any, _timeframe: string): Promise<any>
   return metrics;
 };
 
-export const getCloudResources = async (provider: string, type?: string): Promise<any[]> => {
+export const getCloudResources = async (provider: string, type?: string): Promise<CloudResource[]> => {
   try {
     const providerData = await pool.query(
       'SELECT * FROM cloud_providers WHERE name = $1 AND status = $2',

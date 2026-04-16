@@ -1,14 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { logger } from '../utils/logger';
 
-declare global {
-  namespace Express {
-    interface Request {
-      requestId?: string;
-    }
-  }
-}
-
 const createRequestId = (): string => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {

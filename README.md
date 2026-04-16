@@ -29,8 +29,9 @@ Secure API handling
 
 #Tech Stack
 Frontend
-HTML, CSS, JavaScript
-EJS (Embedded JavaScript Templates)
+React
+Vite
+TypeScript
 Backend
 Node.js
 Express.js

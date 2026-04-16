@@ -9,20 +9,6 @@ interface JwtPayload {
   email: string;
 }
 
-interface AuthenticatedUser {
-  id: string;
-  email: string;
-  role: string;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthenticatedUser;
-    }
-  }
-}
-
 const extractBearerToken = (authorizationHeader?: string): string => {
   if (!authorizationHeader) {
     throw new ApiError('Access token required', 401);

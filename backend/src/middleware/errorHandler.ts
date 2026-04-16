@@ -6,6 +6,11 @@ export interface CustomError extends Error {
   isOperational?: boolean;
 }
 
+const getPostgresErrorCode = (err: CustomError): string | undefined => {
+  const maybePostgresError = err as CustomError & { code?: unknown };
+  return typeof maybePostgresError.code === 'string' ? maybePostgresError.code : undefined;
+};
+
 export const errorHandler = (
   err: CustomError,
   req: Request,
@@ -28,22 +33,23 @@ export const errorHandler = (
     query: req.query
   });
 
-  // Mongoose bad ObjectId
-  if (err.name === 'CastError') {
-    const message = 'Resource not found';
-    error = { ...error, message, statusCode: 404 };
-  }
+  const postgresErrorCode = getPostgresErrorCode(err);
 
-  // Mongoose duplicate key
-  if (err.name === 'MongoError' && (err as any).code === 11000) {
-    const message = 'Duplicate field value entered';
-    error = { ...error, message, statusCode: 400 };
-  }
+  if (postgresErrorCode) {
+    if (postgresErrorCode === '23505') {
+      const message = 'Duplicate field value entered';
+      error = { ...error, message, statusCode: 409 };
+    }
 
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    const message = Object.values((err as any).errors).map((val: any) => val.message).join(', ');
-    error = { ...error, message, statusCode: 400 };
+    if (postgresErrorCode === '23503') {
+      const message = 'Referenced resource not found';
+      error = { ...error, message, statusCode: 400 };
+    }
+
+    if (postgresErrorCode === '23502') {
+      const message = 'Required field is missing';
+      error = { ...error, message, statusCode: 400 };
+    }
   }
 
   // JWT errors

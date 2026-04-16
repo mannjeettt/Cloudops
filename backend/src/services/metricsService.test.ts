@@ -35,6 +35,8 @@ import { promises as fsPromises, statfsSync } from 'fs';
 import { pool } from '../config/database';
 import { collectSystemMetrics, getMetricsHistory } from './metricsService';
 
+type ReadFilePath = Parameters<typeof fsPromises.readFile>[0];
+
 describe('metricsService', () => {
   const mockedPool = pool as jest.Mocked<typeof pool>;
   const mockedOs = os as jest.Mocked<typeof os>;
@@ -95,7 +97,7 @@ describe('metricsService', () => {
 
     mockedFsPromises.readdir.mockResolvedValue(['eth0', 'lo', 'eth1'] as never);
     let snapshotPhase = 0;
-    mockedFsPromises.readFile.mockImplementation(async (path: any) => {
+    mockedFsPromises.readFile.mockImplementation(async (path: ReadFilePath) => {
       const firstSnapshot: Record<string, string> = {
         '/sys/class/net/eth0/statistics/rx_bytes': '1048576',
         '/sys/class/net/eth0/statistics/tx_bytes': '2097152',

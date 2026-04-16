@@ -54,6 +54,14 @@ interface TimedNetworkSample extends NetworkSample {
   timestamp: number;
 }
 
+export interface MetricsHistoryRow {
+  id: string | number;
+  metric_type: string;
+  value: string | number;
+  metadata?: unknown;
+  created_at: Date | string;
+}
+
 const SAMPLE_WINDOW_MS = 1000;
 let previousCpuSnapshot: CpuSnapshot | null = null;
 let previousNetworkSample: TimedNetworkSample | null = null;
@@ -297,7 +305,7 @@ const storeMetrics = async (metrics: SystemMetrics): Promise<void> => {
 export const getMetricsHistory = async (
   metricType: string,
   timeframe: string = DEFAULT_TIMEFRAME
-): Promise<any[]> => {
+): Promise<MetricsHistoryRow[]> => {
   try {
     const interval = resolveInterval(timeframe);
     const result = await pool.query(`
