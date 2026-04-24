@@ -173,21 +173,21 @@ The database includes tables for:
 ### Project Structure
 ```
 backend/
-├── src/
-│   ├── config/          # Database, Redis, etc.
-│   ├── middleware/      # Auth, error handling
-│   ├── routes/         # API route handlers
-│   ├── services/       # Business logic
-│   ├── socket/         # WebSocket handlers
-│   ├── utils/          # Utilities
-│   └── server.ts       # Main server file
-├── database/
-│   └── schema.sql      # Database schema
-├── logs/               # Log files
-├── .env.example        # Environment template
-├── package.json
-├── tsconfig.json
-└── README.md
+|-- src/
+|   |-- config/          # Database, Redis, etc.
+|   |-- middleware/      # Auth, error handling
+|   |-- routes/          # API route handlers
+|   |-- services/        # Business logic
+|   |-- socket/          # WebSocket handlers
+|   |-- utils/           # Utilities
+|   `-- server.ts        # Main server file
+|-- database/
+|   `-- schema.sql       # Database schema
+|-- logs/                # Log files
+|-- .env.example         # Environment template
+|-- package.json
+|-- tsconfig.json
+`-- README.md
 ```
 
 ## Deployment
@@ -213,5 +213,4 @@ backend/
 
 ## License
 
-MIT License</content>
-<parameter name="filePath">c:\Users\manje\Desktop\cloudops\backend\README.md
+MIT License

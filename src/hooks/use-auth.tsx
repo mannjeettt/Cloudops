@@ -7,7 +7,7 @@ import {
 } from "react";
 
 import { fetchJson } from "@/lib/api";
-import { demoAuthToken, demoAuthUser, isAuthRequired } from "@/lib/auth-config";
+import { demoAuthUser, getDemoAuthToken, isAuthRequired } from "@/lib/auth-config";
 import { setAuthToken, getStoredAuthToken } from "@/lib/auth-token";
 import { queryClient } from "@/lib/query-client";
 
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(isAuthRequired ? null : demoAuthUser);
   const [token, setToken] = useState<string | null>(() => {
     if (!isAuthRequired) {
-      return demoAuthToken;
+      return getDemoAuthToken();
     }
 
     return getStoredAuthToken();
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const logout = () => {
     if (!isAuthRequired) {
       setUser(demoAuthUser);
-      setToken(demoAuthToken);
+      setToken(getDemoAuthToken());
       return;
     }
 
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const refreshSession = async () => {
     if (!isAuthRequired) {
       setUser(demoAuthUser);
-      setToken(demoAuthToken);
+      setToken(getDemoAuthToken());
       setIsBootstrapping(false);
       return;
     }
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         ...demoAuthUser,
         email: email || demoAuthUser.email,
       });
-      setToken(demoAuthToken);
+      setToken(getDemoAuthToken());
       return;
     }
 

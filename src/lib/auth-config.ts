@@ -1,6 +1,6 @@
 import type { AuthUser } from "@/hooks/use-auth";
 
-export const isAuthRequired = import.meta.env.VITE_REQUIRE_AUTH === "true";
+export const isAuthRequired = import.meta.env.VITE_REQUIRE_AUTH !== "false";
 
 export const demoAuthUser: AuthUser = {
   id: "demo-user",
@@ -9,4 +9,12 @@ export const demoAuthUser: AuthUser = {
   role: "admin",
 };
 
-export const demoAuthToken = "demo-session-token";
+let demoAuthToken: string | null = null;
+
+export function getDemoAuthToken(): string {
+  if (!demoAuthToken) {
+    demoAuthToken = `demo-session-${crypto.randomUUID()}`;
+  }
+
+  return demoAuthToken;
+}
