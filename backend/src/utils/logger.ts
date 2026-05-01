@@ -2,9 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import winston from 'winston';
 
+const isTest = process.env.NODE_ENV === 'test';
 const logsDirectory = path.resolve(process.cwd(), 'logs');
 
-if (!fs.existsSync(logsDirectory)) {
+if (!isTest && !fs.existsSync(logsDirectory)) {
   fs.mkdirSync(logsDirectory, { recursive: true });
 }
 
@@ -16,9 +17,12 @@ const baseFormat = winston.format.combine(
 
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
+  silent: isTest,
   format: baseFormat,
   defaultMeta: { service: 'cloudops-backend' },
-  transports: [
+  transports: isTest ? [
+    new winston.transports.Console()
+  ] : [
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),

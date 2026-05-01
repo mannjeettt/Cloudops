@@ -56,12 +56,18 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 
-initializeSocket(new SocketIOServer(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || '*',
-    credentials: true
-  }
-}));
+const io = process.env.NODE_ENV === 'test'
+  ? null
+  : new SocketIOServer(server, {
+    cors: {
+      origin: process.env.FRONTEND_URL || '*',
+      credentials: true
+    }
+  });
+
+if (io) {
+  initializeSocket(io);
+}
 
 export const startServer = async (): Promise<void> => {
   validateRequiredEnv();
@@ -87,4 +93,25 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-export { app, server };
+export const closeBackendResources = async (): Promise<void> => {
+  if (io) {
+    await new Promise<void>((resolve) => {
+      io.close(() => resolve());
+    });
+  }
+
+  if (server.listening) {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
+};
+
+export { app, server, io };

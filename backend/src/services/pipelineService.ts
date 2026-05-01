@@ -47,6 +47,7 @@ interface PipelineSourceConfig {
 }
 
 const EXTERNAL_PIPELINE_LIMIT = 5;
+const pendingPipelineTimers = new Set<NodeJS.Timeout>();
 
 const parsePipelineSources = (): PipelineSourceConfig[] => {
   const raw = process.env.PIPELINE_SOURCES_JSON?.trim();
@@ -343,7 +344,8 @@ export const triggerPipeline = async (pipelineId: string, branch: string = 'main
       startedAt: new Date().toISOString()
     });
 
-    setTimeout(async () => {
+    const runningTimer = setTimeout(async () => {
+      pendingPipelineTimers.delete(runningTimer);
       try {
         await pool.query(
           'UPDATE pipeline_triggers SET status = $1, started_at = NOW() WHERE pipeline_id = $2 AND status = $3',
@@ -362,10 +364,18 @@ export const triggerPipeline = async (pipelineId: string, branch: string = 'main
         logger.error(`Error updating pipeline ${pipelineId} to running`, error);
       }
     }, 1000);
+
+    runningTimer.unref?.();
+    pendingPipelineTimers.add(runningTimer);
   } catch (error) {
     logger.error(`Error triggering pipeline ${pipelineId}:`, error);
     throw error;
   }
+};
+
+export const clearPipelineTimers = (): void => {
+  pendingPipelineTimers.forEach((timer) => clearTimeout(timer));
+  pendingPipelineTimers.clear();
 };
 
 export const getPipelineHistory = async (pipelineId: string, limit: number = 10): Promise<PipelineHistoryEntry[]> => {

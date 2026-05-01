@@ -1,10 +1,11 @@
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { app, server } from '../server';
+import { app, closeBackendResources } from '../server';
 import { pool } from '../config/database';
 import { createAlert, resolveAlert } from '../services/alertService';
 import { getContainerLogs, startContainer, stopContainer } from '../services/containerService';
+import { triggerPipeline } from '../services/pipelineService';
 
 process.env.JWT_SECRET = 'test-jwt-secret';
 
@@ -29,13 +30,38 @@ jest.mock('../services/containerService', () => ({
   stopContainer: jest.fn()
 }));
 
-afterAll((done) => {
-  if (server.listening) {
-    server.close(done);
-    return;
-  }
+jest.mock('../services/cloudService', () => ({
+  getCloudProviders: jest.fn().mockResolvedValue([]),
+  connectCloudProvider: jest.fn(),
+  disconnectCloudProvider: jest.fn(),
+  getCloudMetrics: jest.fn().mockResolvedValue({ provider: 'AWS', services: [] }),
+  getCloudResources: jest.fn().mockResolvedValue([])
+}));
 
-  done();
+jest.mock('../services/metricsService', () => ({
+  collectSystemMetrics: jest.fn().mockResolvedValue({
+    cpu: 0,
+    memory: { used: 0, total: 0, percentage: 0 },
+    disk: { used: 0, total: 0, percentage: 0 },
+    network: { rx: 0, tx: 0 },
+    uptime: 0,
+    loadAverage: []
+  })
+}));
+
+jest.mock('../services/pipelineService', () => ({
+  getPipelineStatus: jest.fn().mockResolvedValue([]),
+  triggerPipeline: jest.fn(),
+  getPipelineHistory: jest.fn().mockResolvedValue([])
+}));
+
+afterEach(() => {
+  jest.clearAllTimers();
+  jest.useRealTimers();
+});
+
+afterAll(async () => {
+  await closeBackendResources();
 });
 
 describe('API Health Check', () => {
@@ -333,5 +359,52 @@ describe('Container routes', () => {
     expect(response.status).toBe(200);
     expect(response.body.message).toBe('Container stopped successfully');
     expect(mockedStopContainer).toHaveBeenCalledWith('container-1');
+  });
+});
+
+describe('Pipeline routes', () => {
+  const mockedQuery = pool.query as jest.Mock;
+  const mockedTriggerPipeline = triggerPipeline as jest.Mock;
+  const adminToken = jwt.sign({ userId: '1', email: 'admin@cloudops.io' }, process.env.JWT_SECRET!);
+
+  beforeEach(() => {
+    mockedQuery.mockReset();
+    mockedTriggerPipeline.mockReset();
+  });
+
+  it('triggers a CI/CD pipeline for authenticated users with the requested branch', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [{ id: '1', email: 'admin@cloudops.io', role: 'admin' }] });
+    mockedTriggerPipeline.mockResolvedValueOnce(undefined);
+
+    const response = await request(app)
+      .post('/api/pipelines/deploy-api/trigger')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ branch: 'release/2026.04' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe('Pipeline triggered successfully');
+    expect(mockedTriggerPipeline).toHaveBeenCalledWith('deploy-api', 'release/2026.04', '1');
+  });
+
+  it('defaults pipeline triggers to main when no branch is provided', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [{ id: '1', email: 'admin@cloudops.io', role: 'admin' }] });
+    mockedTriggerPipeline.mockResolvedValueOnce(undefined);
+
+    const response = await request(app)
+      .post('/api/pipelines/deploy-api/trigger')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(mockedTriggerPipeline).toHaveBeenCalledWith('deploy-api', 'main', '1');
+  });
+
+  it('rejects CI/CD pipeline triggers without authentication', async () => {
+    const response = await request(app)
+      .post('/api/pipelines/deploy-api/trigger')
+      .send({ branch: 'main' });
+
+    expect(response.status).toBe(401);
+    expect(mockedTriggerPipeline).not.toHaveBeenCalled();
   });
 });
