@@ -29,6 +29,31 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return;
+          }
+
+          if (id.includes("@tanstack/react-query")) {
+            return "query";
+          }
+
+          if (id.includes("recharts") || id.includes("chart.js") || id.includes("react-chartjs-2")) {
+            return "charts";
+          }
+
+          if (id.includes("@radix-ui") || id.includes("lucide-react")) {
+            return "ui-vendor";
+          }
+
+          return "vendor";
+        },
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",

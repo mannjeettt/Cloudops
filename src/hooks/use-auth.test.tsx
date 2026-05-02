@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { AuthProvider } from "@/hooks/auth-provider";
+import { useAuth } from "@/hooks/use-auth";
 import { setAuthToken } from "@/lib/auth-token";
 import { queryClient } from "@/lib/query-client";
 

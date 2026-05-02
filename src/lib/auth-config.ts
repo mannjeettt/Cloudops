@@ -1,4 +1,4 @@
-import type { AuthUser } from "@/hooks/use-auth";
+import type { AuthUser } from "@/hooks/auth-context";
 
 export const isAuthRequired = import.meta.env.VITE_REQUIRE_AUTH !== "false";
 

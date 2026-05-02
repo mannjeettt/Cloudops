@@ -27,13 +27,22 @@ router.get('/providers', asyncHandler(async (_req, res) => {
 // Connect cloud provider
 router.post('/providers/:provider/connect', authenticateToken, asyncHandler(async (req, res) => {
   const { provider } = req.params;
-  const { apiKey, secretKey, region } = req.body;
+  const credentials = req.body;
+  const normalizedProvider = provider.toLowerCase();
 
-  if (!apiKey || !secretKey) {
+  if (normalizedProvider === 'aws' && (!credentials.apiKey || !credentials.secretKey)) {
     throw new ApiError('API key and secret key are required', 400);
   }
 
-  await connectCloudProvider(provider, { apiKey, secretKey, region });
+  if (
+    normalizedProvider === 'azure' &&
+    !credentials.resourceId &&
+    (!Array.isArray(credentials.resourceIds) || credentials.resourceIds.length === 0)
+  ) {
+    throw new ApiError('Azure resourceId or resourceIds are required for Azure Monitor metrics', 400);
+  }
+
+  await connectCloudProvider(provider, credentials);
   res.json({ message: `${provider} connected successfully` });
 }));
 

@@ -44,7 +44,7 @@ function formatRelativeTime(timestamp?: string) {
 const CICD = () => {
   const [selectedProvider, setSelectedProvider] = useState<string>("all");
   const { data: pipelineResponse } = usePipelinesQuery(selectedProvider === "all" ? undefined : { provider: selectedProvider });
-  const pipelines = pipelineResponse?.pipelines || [];
+  const pipelines = useMemo(() => pipelineResponse?.pipelines ?? [], [pipelineResponse?.pipelines]);
   const { data: deploymentHistory = [], isLoading: isDeploymentsLoading } = useDeploymentHistoryQuery(8);
   const availableProviders = useMemo(
     () => ["all", ...new Set(pipelines.map((pipeline) => pipeline.provider).filter(Boolean) as string[])],
