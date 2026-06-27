@@ -4,6 +4,7 @@ import { pool } from '../config/database';
 import { ApiError } from '../utils/apiError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { broadcastMaintenanceMode } from '../socket/socketManager';
+import { isDemoMode } from '../config/demo';
 
 const router = express.Router();
 
@@ -34,6 +35,20 @@ const defaultSystemSettings = {
 };
 
 router.get('/', authenticateToken, asyncHandler(async (req, res) => {
+  if (isDemoMode()) {
+    res.json({
+      profile: {
+        id: req.user!.id,
+        email: req.user!.email,
+        name: 'Demo Admin',
+        role: req.user!.role
+      },
+      preferences: defaultPreferences,
+      systemSettings: defaultSystemSettings
+    });
+    return;
+  }
+
   const [userResult, settingsResult, systemSettingsResult] = await Promise.all([
     pool.query(
       'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1',
@@ -63,6 +78,24 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 router.put('/', authenticateToken, asyncHandler(async (req, res) => {
+  if (isDemoMode()) {
+    const { profile = {}, preferences = {} } = req.body as SettingsUpdatePayload;
+    res.json({
+      message: 'Demo settings updated for this presentation session',
+      profile: {
+        id: req.user!.id,
+        email: profile.email || req.user!.email,
+        name: profile.name || 'Demo Admin',
+        role: req.user!.role
+      },
+      preferences: {
+        ...defaultPreferences,
+        ...preferences
+      }
+    });
+    return;
+  }
+
   const {
     profile = {},
     preferences = {}
@@ -128,6 +161,11 @@ router.get('/system', authenticateToken, asyncHandler(async (req, res) => {
     throw new ApiError('Admin access required', 403);
   }
 
+  if (isDemoMode()) {
+    res.json({ settings: defaultSystemSettings });
+    return;
+  }
+
   const result = await pool.query('SELECT maintenance_mode, max_users, data_retention_days, backup_frequency, updated_at FROM system_settings ORDER BY id ASC LIMIT 1');
   res.json({ settings: result.rows[0] || defaultSystemSettings });
 }));
@@ -135,6 +173,12 @@ router.get('/system', authenticateToken, asyncHandler(async (req, res) => {
 router.put('/system', authenticateToken, asyncHandler(async (req, res) => {
   if (req.user!.role !== 'admin') {
     throw new ApiError('Admin access required', 403);
+  }
+
+  if (isDemoMode()) {
+    broadcastMaintenanceMode(Boolean(req.body.maintenance_mode));
+    res.json({ message: 'Demo system settings updated for this presentation session' });
+    return;
   }
 
   const {

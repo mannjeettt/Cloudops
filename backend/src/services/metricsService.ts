@@ -3,6 +3,7 @@ import { execFile } from 'child_process';
 import { promises as fsPromises, statfsSync } from 'fs';
 import { promisify } from 'util';
 import { pool } from '../config/database';
+import { isDemoMode } from '../config/demo';
 import { logger } from '../utils/logger';
 import { broadcastMetricsSnapshot } from '../socket/socketManager';
 
@@ -93,8 +94,9 @@ export const collectSystemMetrics = async (): Promise<SystemMetrics> => {
       loadAverage: os.loadavg()
     };
 
-    // Store metrics in database
-    await storeMetrics(metrics);
+    if (!isDemoMode()) {
+      await storeMetrics(metrics);
+    }
     broadcastMetricsSnapshot({
       type: 'metrics.snapshot',
       metrics,

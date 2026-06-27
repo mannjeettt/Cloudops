@@ -5,8 +5,10 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:presentation": "tsx watch -r dotenv/config src/server.ts dotenv_config_path=.env.presentation",
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:presentation": "node -r dotenv/config dist/server.js dotenv_config_path=.env.presentation",
     "lint": "eslint -c eslint.config.cjs src",
     "test": "jest"
   },

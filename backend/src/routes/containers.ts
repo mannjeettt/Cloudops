@@ -3,7 +3,7 @@ import { authenticateToken } from '../middleware/auth';
 import { getContainerStats, getContainerLogs, startContainer, stopContainer } from '../services/containerService';
 import { ApiError } from '../utils/apiError';
 import { asyncHandler } from '../utils/asyncHandler';
-import { isDemoMode } from '../config/demo';
+import { isDemoMode, shouldUseRealDockerInDemo } from '../config/demo';
 import { demoContainers } from '../data/demoData';
 
 const router = express.Router();
@@ -11,6 +11,14 @@ const router = express.Router();
 // Get all containers
 router.get('/', asyncHandler(async (_req, res) => {
   if (isDemoMode()) {
+    if (shouldUseRealDockerInDemo()) {
+      const containers = await getContainerStats();
+      if (containers.length > 0) {
+        res.json({ containers });
+        return;
+      }
+    }
+
     res.json({ containers: demoContainers });
     return;
   }

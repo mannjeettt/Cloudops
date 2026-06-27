@@ -42,3 +42,34 @@ CloudOps is a full-stack web application designed to monitor, manage, and automa
 - Docker for containerization
 - AWS / Cloud APIs for optional integration
 - Git and GitHub
+
+## Presentation Deployment
+
+This repository includes a demo-ready mode for college presentations. It runs with seeded demo data, browser demo authentication, and no PostgreSQL/Redis dependency. It still collects live CPU, memory, disk, network, and uptime metrics from the backend host. If Docker Desktop is running and accessible, the Containers page shows real local containers; otherwise it falls back to seeded demo containers.
+
+1. Install dependencies:
+   ```bash
+   npm install
+   npm --prefix backend install
+   ```
+
+2. Start the backend in one terminal:
+   ```bash
+   npm run backend:presentation
+   ```
+
+3. Start the frontend in another terminal:
+   ```bash
+   npm run dev:presentation
+   ```
+
+4. Open:
+   ```text
+   http://127.0.0.1:8080
+   ```
+
+For a static frontend build:
+
+```bash
+npm run build:presentation
+```
