@@ -23,6 +23,13 @@ const hasJsonBody = (body: BodyInit | null | undefined): body is string =>
   typeof body === "string";
 
 export async function fetchJson<T>(url: string, options: FetchJsonOptions = {}): Promise<T> {
+  const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
+  const isAbsolute = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
+  const fullUrl = isAbsolute.test(url)
+    ? url
+    : API_BASE
+    ? `${API_BASE.replace(/\/$/, "")}${url.startsWith("/") ? "" : "/"}${url}`
+    : url;
   const token = getAuthToken();
   const headers = new Headers(options.headers);
 
@@ -34,7 +41,7 @@ export async function fetchJson<T>(url: string, options: FetchJsonOptions = {}):
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(url, {
+  const response = await fetch(fullUrl, {
     ...options,
     headers,
   });
@@ -44,7 +51,7 @@ export async function fetchJson<T>(url: string, options: FetchJsonOptions = {}):
 
   if (!response.ok) {
     throw new ApiError(
-      String(body?.message || body?.error || `Request failed for ${url}`),
+      String(body?.message || body?.error || `Request failed for ${fullUrl}`),
       response.status,
       typeof body?.requestId === "string" ? body.requestId : undefined,
     );
