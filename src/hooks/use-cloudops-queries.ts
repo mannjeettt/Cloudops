@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 
 import { fetchJson, REFRESH_INTERVAL_MS } from "@/lib/api";
+const API_BASE = (import.meta.env.VITE_API_URL as string) ?? "";
 import { queryClient } from "@/lib/query-client";
 
 export interface AlertItem {
@@ -119,7 +120,7 @@ export function useActiveAlertsQuery() {
   return useQuery({
     queryKey: ["alerts", "active"],
     queryFn: async () => {
-      const body = await fetchJson<{ alerts?: AlertItem[] }>("/api/alerts/active");
+      const body = await fetchJson<{ alerts?: AlertItem[] }>(`${API_BASE}/api/alerts/active`);
       return Array.isArray(body.alerts) ? body.alerts : [];
     },
     refetchInterval: REFRESH_INTERVAL_MS,
@@ -129,7 +130,7 @@ export function useActiveAlertsQuery() {
 export function useAlertStatsQuery() {
   return useQuery({
     queryKey: ["alerts", "stats"],
-    queryFn: () => fetchJson<AlertStatsResponse>("/api/alerts/stats"),
+    queryFn: () => fetchJson<AlertStatsResponse>(`${API_BASE}/api/alerts/stats`),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
 }
@@ -138,7 +139,7 @@ export function useAlertHistoryQuery(limit: number = 100) {
   return useQuery({
     queryKey: ["alerts", "history", limit],
     queryFn: async () => {
-      const body = await fetchJson<{ alerts?: AlertItem[] }>(`/api/alerts/history?limit=${limit}`);
+      const body = await fetchJson<{ alerts?: AlertItem[] }>(`${API_BASE}/api/alerts/history?limit=${limit}`);
       return Array.isArray(body.alerts) ? body.alerts : [];
     },
     refetchInterval: REFRESH_INTERVAL_MS,
@@ -149,7 +150,7 @@ export function useContainersQuery() {
   return useQuery({
     queryKey: ["containers"],
     queryFn: async () => {
-      const body = await fetchJson<{ containers?: ContainerItem[] }>("/api/containers");
+      const body = await fetchJson<{ containers?: ContainerItem[] }>(`${API_BASE}/api/containers`);
       return Array.isArray(body.containers) ? body.containers : [];
     },
     refetchInterval: REFRESH_INTERVAL_MS,
@@ -170,7 +171,7 @@ export function usePipelinesQuery(filters?: { provider?: string; source?: string
   return useQuery({
     queryKey: ["pipelines", filters],
     queryFn: async () => {
-      const body = await fetchJson<{ pipelines?: Pipeline[]; summary?: PipelineSummary }>(`/api/pipelines${search.size ? `?${search.toString()}` : ""}`);
+      const body = await fetchJson<{ pipelines?: Pipeline[]; summary?: PipelineSummary }>(`${API_BASE}/api/pipelines${search.size ? `?${search.toString()}` : ""}`);
       return {
         pipelines: Array.isArray(body.pipelines) ? body.pipelines : [],
         summary: body.summary || { total: 0, running: 0, success: 0, failed: 0 },
@@ -184,7 +185,7 @@ export function useDeploymentHistoryQuery(limit: number = 20) {
   return useQuery({
     queryKey: ["pipelines", "deployments", limit],
     queryFn: async () => {
-      const body = await fetchJson<{ deployments?: DeploymentHistoryItem[] }>(`/api/pipelines/deployments/history?limit=${limit}`);
+      const body = await fetchJson<{ deployments?: DeploymentHistoryItem[] }>(`${API_BASE}/api/pipelines/deployments/history?limit=${limit}`);
       return Array.isArray(body.deployments) ? body.deployments : [];
     },
     refetchInterval: REFRESH_INTERVAL_MS,
@@ -194,7 +195,7 @@ export function useDeploymentHistoryQuery(limit: number = 20) {
 export function useCurrentMetricsQuery() {
   return useQuery({
     queryKey: ["metrics", "current"],
-    queryFn: () => fetchJson<MetricsResponse>("/api/metrics/current"),
+    queryFn: () => fetchJson<MetricsResponse>(`${API_BASE}/api/metrics/current`),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
 }
@@ -203,7 +204,7 @@ export function useMetricsSummaryQuery() {
   return useQuery({
     queryKey: ["metrics", "summary"],
     queryFn: async () => {
-      const body = await fetchJson<{ summary?: MetricsSummaryRow[] }>("/api/metrics/summary");
+      const body = await fetchJson<{ summary?: MetricsSummaryRow[] }>(`${API_BASE}/api/metrics/summary`);
       return Array.isArray(body.summary) ? body.summary : [];
     },
     refetchInterval: REFRESH_INTERVAL_MS,
@@ -215,7 +216,7 @@ export function useMetricHistoryQueries(timeframe: string = "1h", metrics: strin
     queries: metrics.map((metric) => ({
       queryKey: ["metrics", "history", metric, timeframe],
       queryFn: async () => {
-        const body = await fetchJson<{ metrics?: MetricsHistoryPoint[] }>(`/api/metrics/history?metric=${metric}&timeframe=${timeframe}`);
+        const body = await fetchJson<{ metrics?: MetricsHistoryPoint[] }>(`${API_BASE}/api/metrics/history?metric=${metric}&timeframe=${timeframe}`);
         return Array.isArray(body.metrics) ? body.metrics : [];
       },
       refetchInterval: REFRESH_INTERVAL_MS,
@@ -226,14 +227,14 @@ export function useMetricHistoryQueries(timeframe: string = "1h", metrics: strin
 export function useSettingsQuery() {
   return useQuery({
     queryKey: ["settings"],
-    queryFn: () => fetchJson<SettingsResponse>("/api/settings"),
+    queryFn: () => fetchJson<SettingsResponse>(`${API_BASE}/api/settings`),
   });
 }
 
 export function useUpdateSettingsMutation() {
   return useMutation({
-    mutationFn: (payload: Pick<SettingsResponse, "profile" | "preferences">) =>
-      fetchJson("/api/settings", {
+      mutationFn: (payload: Pick<SettingsResponse, "profile" | "preferences">) =>
+      fetchJson(`${API_BASE}/api/settings`, {
         method: "PUT",
         body: JSON.stringify(payload),
       }),
@@ -245,8 +246,8 @@ export function useUpdateSettingsMutation() {
 
 export function useUpdateSystemSettingsMutation() {
   return useMutation({
-    mutationFn: (payload: NonNullable<SettingsResponse["systemSettings"]>) =>
-      fetchJson("/api/settings/system", {
+      mutationFn: (payload: NonNullable<SettingsResponse["systemSettings"]>) =>
+      fetchJson(`${API_BASE}/api/settings/system`, {
         method: "PUT",
         body: JSON.stringify(payload),
       }),
